@@ -1,0 +1,37 @@
+# --- Unreal Engine ---
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/*
+!Build/*/
+Build/*/**
+!Build/**/*.ico
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# --- IDE / solutions générées ---
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+*.xcworkspace
+*.code-workspace
+compile_commands.json
+
+# --- Fichiers temporaires ---
+*.tmp
+*.log
+*.pdb
+*.obj
+__pycache__/
+*.pyc
+
+# --- Dossiers personnels de l'éditeur ---
+Content/Developers/
+Content/Collections/
