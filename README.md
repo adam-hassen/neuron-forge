@@ -90,19 +90,21 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible,
 |---|---|---|
 | Réseau de neurones | `FNFNeuralNetwork`, `FNFDenseLayer`, `FNFLayerConfig`, `ENFActivation` | Perceptron multicouche en C++ pur : propagation avant, rétropropagation, SGD avec mélange des exemples, initialisation Xavier/He, perte choisie automatiquement (entropie croisée binaire avec une sortie Sigmoid, MSE sinon). |
 | Données | `FNFDataset` | Datasets d'entraînement (XOR pour le MVP). |
-| Entraînement | `UNFTrainerComponent` | Entraînement réparti sur plusieurs frames, avec des événements de progression et de réussite. |
+| Entraînement | `UNFTrainerComponent` | Entraînement réparti sur les frames (epochs par seconde réglables) ; états Idle / Training / Succeeded / Failed ; cible : précision 100 % **et** perte < 0,1 ; échec après 2000 epochs ; événements `OnStateChanged` et `OnProgress`. |
 | Interaction | `INFInteractable` | Interface commune à tous les objets interactifs : `CanInteract`, `Interact`, `OnFocusBegin`, `OnFocusEnd`, `GetInteractionPrompt`. L'objet ne sait pas comment on interagit avec lui. |
 | Interaction | `UNFInteractorComponent` | Ce qui interagit : un rayon depuis la caméra (PC) ou depuis un composant quelconque via `SetTraceSource` (contrôleur VR), et `InteractWith` pour un contact direct (main VR). |
 | Interaction | `ANFInteractableActor` | Acteur interactif de base : mesh, texte d'aide, surbrillance (paramètre de material `Highlight` + Custom Depth), événement `OnInteracted`. |
 | Joueur | `ANFCharacter` | Personnage FPS en C++ reprenant la configuration du template (bras FP, corps en ombre, caméra sur la tête, FOV first person) et ses assets ; ajoute l'action « Interagir ». |
 | Joueur | `ANFPlayerController`, `ANFPlayerCameraManager`, `ANFHUD` | Contrôleur, limites de caméra du template, réticule, texte d'aide et messages temporaires dessinés au Canvas. |
 | Règles | `ANFGameMode` | Associe le personnage, le contrôleur et le HUD du jeu. |
-| Labo | `ANFNetworkBuilder` | Holotable : configuration et visualisation 3D du réseau. |
-| Labo | `ANFConfigButton` | Boutons muraux de configuration (couches, neurones, activation, taux d'apprentissage). |
-| Labo | `ANFFloorButton` | Bouton au sol (Box Collision) qui lance l'entraînement. |
-| Labo | `ANFStatusDisplay` | Écran d'état (Text Render). |
-| Labo | `ANFLabDoor` | Porte animée et son de validation. |
-| Labo | `ANFExitTrigger` | Zone de fin de niveau (Box Collision). |
+| Labo | `ANFNetworkBuilder` | Holotable : configuration du réseau (actions `ENFConfigAction`), conseils pédagogiques, visualisation 3D en instances (neurones = sphères colorées selon l'activation et lumineuses selon leur valeur, poids = cylindres bleus/rouges selon le signe et épais selon l'amplitude), défilement des exemples XOR. |
+| Labo | `ANFConfigButton` | Bouton mural : applique une action sur une couche ; grisé si l'action est impossible (couche absente, limite atteinte, entraînement en cours) ; texte d'aide dynamique. |
+| Labo | `ANFFloorButton` | Bouton au sol : trigger Box Collision qui détecte le joueur, plaque qui s'enfonce et s'illumine, lance l'entraînement. |
+| Labo | `ANFStatusDisplay` | Écran d'état en Text Render : mission, architecture, epoch, perte, précision, prédictions sur les 4 cas, conseil. |
+| Labo | `ANFLabDoor` | Porte coulissante animée par une timeline (`FTimeline` + courbe ease-in-out) ; s'ouvre à la réussite avec le son de validation ; voyant rouge → vert. |
+| Labo | `ANFExitTrigger` | Zone de fin de niveau (Box Collision) derrière la porte. |
+
+**Parcours pédagogique prévu** : le réseau de départ n'a pas de couche cachée et échoue (« XOR n'est pas linéairement séparable ») ; la couche ajoutée est Linear et échoue aussi (« des couches Linear empilées restent linéaires ») ; en passant à Tanh, ReLU ou Sigmoid, le modèle réussit et la porte s'ouvre.
 
 ### Arborescence
 
@@ -116,7 +118,9 @@ ProjetNeuro/
 │       ├── Core/            GameMode
 │       ├── Interaction/     Interface commune, interacteur, acteur interactif de base
 │       ├── NeuralNetwork/   Réseau de neurones, activations, datasets
+│       ├── Lab/             Holotable, boutons, bouton au sol, écran, porte, sortie
 │       ├── Player/          Personnage, contrôleur, caméra, HUD
+│       ├── Training/        Composant d'entraînement
 │       └── Tests/           Tests d'automatisation
 ├── Content/
 │   ├── Python/              Scripts Python de génération du contenu
@@ -158,6 +162,8 @@ Si le dépôt a été cloné sans LFS, récupérez les assets avec `git lfs pull
 
 `<UE_5.6>` désigne le dossier d'installation du moteur, par exemple `C:\Program Files\Epic Games\UE_5.6`.
 
+> **Projet sur un lecteur réseau ?** Sur certains partages réseau, la date de modification des fichiers n'est pas mise à jour de façon fiable : Unreal Build Tool peut alors annoncer `Result: Succeeded` sans rien recompiler. Si une modification ne semble pas prise en compte, vérifiez que la sortie contient des lignes `[n/m] Compile`, ou mettez à jour la date des fichiers modifiés (`touch` sous Git Bash) avant de recompiler.
+
 ### Ouvrir et jouer
 
 Double-cliquez sur `ProjetNeuro.uproject`. Si l'éditeur propose de recompiler des modules manquants, acceptez. Lancez ensuite le niveau du labo avec **Play**.
@@ -197,6 +203,10 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `XORSolved` | `2 - 4 Tanh - 1 Sigmoid` résout XOR (100 %). |
 | `XORLinearFails` | Sans couche cachée, ou avec une couche cachée Linear, XOR reste à 50 % : **la non-linéarité est indispensable**. |
 | `Interaction.Interactor` | Dans un monde de test : rayon, distance maximale, focus et surbrillance, interaction, objet désactivé, source de visée de type contrôleur VR, interaction directe sans rayon. |
+| `Lab.BuilderEditing` | Actions de configuration et leurs limites, verrouillage pendant l'entraînement, bouton lié à une couche absente puis présente. |
+| `Lab.FloorButtonStartsTraining` | Un pawn qui entre dans la Box Collision du bouton au sol lance l'entraînement ; le bouton se relâche quand il repart. |
+| `Lab.XORSuccessOpensDoor` | Bout en bout : `2 - 4 Tanh - 1 Sigmoid` réussit (57 epochs) et la porte s'ouvre complètement. |
+| `Lab.LinearModelKeepsDoorClosed` | Sans couche cachée : échec, porte fermée, conseil « Ajoutez une couche », configuration de nouveau modifiable. |
 
 **Mesures de calibrage** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
 
@@ -220,8 +230,8 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | 0 | Dépôt Git + LFS, conversion du template en projet C++, activation de Python | ✅ Terminé |
 | 1 | Réseau de neurones en C++ et test automatisé sur XOR | ✅ Terminé |
 | 2 | Interface d'interaction commune, personnage C++, HUD | ✅ Terminé |
-| 3 | Acteurs du labo : holotable, boutons, bouton au sol, écran d'état, porte, son | ⏳ En cours |
-| 4 | Génération du contenu en Python : materials, son, Blueprints, niveau `L_Lab` | 🔲 À faire |
+| 3 | Acteurs du labo : holotable, boutons, bouton au sol, écran d'état, porte, son | ✅ Terminé |
+| 4 | Génération du contenu en Python : materials, son, Blueprints, niveau `L_Lab` | ⏳ En cours |
 | 5 | Test de bout en bout et finitions | 🔲 À faire |
 
 ---

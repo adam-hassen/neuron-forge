@@ -9,42 +9,12 @@
 #include "Engine/World.h"
 #include "Interaction/NFInteractableActor.h"
 #include "Interaction/NFInteractorComponent.h"
+#include "Tests/NFTestWorld.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
 namespace NFInteractionTests
 {
-	constexpr EAutomationTestFlags Flags = EAutomationTestFlags::EditorContext
-		| EAutomationTestFlags::ClientContext
-		| EAutomationTestFlags::ProductFilter;
-
-	/** Monde de jeu temporaire, détruit à la fin du test. */
-	struct FScopedTestWorld
-	{
-		UWorld* World = nullptr;
-
-		FScopedTestWorld()
-		{
-			World = UWorld::CreateWorld(EWorldType::Game, /*bInformEngineOfWorld*/ false, TEXT("NFInteractionTestWorld"));
-			FWorldContext& Context = GEngine->CreateNewWorldContext(EWorldType::Game);
-			Context.SetCurrentWorld(World);
-			World->InitializeActorsForPlay(FURL());
-			World->BeginPlay();
-		}
-
-		~FScopedTestWorld()
-		{
-			GEngine->DestroyWorldContext(World);
-			World->DestroyWorld(false);
-		}
-
-		/** Laisse le moteur enregistrer les nouveaux corps physiques pour les requêtes de collision. */
-		void Step()
-		{
-			World->Tick(LEVELTICK_All, 1.f / 60.f);
-		}
-	};
-
 	ANFInteractableActor* SpawnTarget(UWorld* World, const FVector& Location, UStaticMesh* CubeMesh)
 	{
 		ANFInteractableActor* Target = World->SpawnActor<ANFInteractableActor>(Location, FRotator::ZeroRotator);
@@ -53,7 +23,7 @@ namespace NFInteractionTests
 	}
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFInteractorTest, "NeuronForge.Interaction.Interactor", NFInteractionTests::Flags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFInteractorTest, "NeuronForge.Interaction.Interactor", NFTestUtils::Flags)
 
 bool FNFInteractorTest::RunTest(const FString& Parameters)
 {
@@ -63,7 +33,7 @@ bool FNFInteractorTest::RunTest(const FString& Parameters)
 		return false;
 	}
 
-	NFInteractionTests::FScopedTestWorld TestWorld;
+	NFTestUtils::FScopedTestWorld TestWorld(TEXT("NFInteractionTestWorld"));
 	UWorld* World = TestWorld.World;
 
 	// Propriétaire placé à l'origine et regardant vers +X
