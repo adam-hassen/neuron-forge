@@ -9,6 +9,7 @@
 class UCameraComponent;
 class UInputAction;
 class UInputMappingContext;
+class UNFGrabberComponent;
 class UNFInteractorComponent;
 class USkeletalMeshComponent;
 struct FInputActionValue;
@@ -32,6 +33,7 @@ public:
 	UCameraComponent* GetFirstPersonCamera() const { return FirstPersonCamera; }
 	USkeletalMeshComponent* GetFirstPersonMesh() const { return FirstPersonMesh; }
 	UNFInteractorComponent* GetInteractor() const { return Interactor; }
+	UNFGrabberComponent* GetGrabber() const { return Grabber; }
 
 protected:
 	virtual void NotifyControllerChanged() override;
@@ -58,6 +60,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Components")
 	TObjectPtr<UNFInteractorComponent> Interactor;
+
+	/** Prise en main des pièces de la Forge. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Components")
+	TObjectPtr<UNFGrabberComponent> Grabber;
 
 	// --- Entrées (Enhanced Input) ---
 

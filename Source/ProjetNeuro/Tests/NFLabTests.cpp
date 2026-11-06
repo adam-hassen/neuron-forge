@@ -195,7 +195,7 @@ bool FNFLinearDoorClosedTest::RunTest(const FString& Parameters)
 	TestWorld.Step();
 	TestEqual(TEXT("La porte reste fermée"), Door->GetDoorState(), ENFDoorState::Closed);
 	TestEqual(TEXT("Battants en position fermée"), Door->GetOpenAlpha(), 0.f);
-	TestTrue(TEXT("Le conseil suggère d'ajouter une couche"), Builder->GetHintText().Contains(TEXT("Ajoutez une couche")));
+	TestTrue(TEXT("Le conseil suggère d'ajouter une couche"), Builder->GetHintText().Contains(TEXT("module de couche")));
 
 	// Après échec, la configuration est de nouveau modifiable
 	TestTrue(TEXT("Configuration modifiable après échec"), Builder->ApplyAction(ENFConfigAction::AddLayer));

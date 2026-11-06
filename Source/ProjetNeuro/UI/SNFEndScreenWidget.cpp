@@ -231,7 +231,7 @@ void SNFObjectivesWidget::Construct(const FArguments& InArgs)
 						})
 					]
 				]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Design, LOCTEXT("ObjDesign", "Concevoir le réseau (console)"))]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Design, LOCTEXT("ObjDesign", "Assembler le réseau (Forge)"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Train, LOCTEXT("ObjTrain", "Lancer l'entraînement"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Validate, LOCTEXT("ObjValidate", "Atteindre 100 % de précision"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Exit, LOCTEXT("ObjExit", "Quitter le laboratoire"))]

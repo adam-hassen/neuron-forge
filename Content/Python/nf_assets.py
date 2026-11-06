@@ -398,6 +398,20 @@ def create_lab_materials(materials):
     materials["Ceiling"] = surface_mi("MI_NF_Ceiling", (0.012, 0.014, 0.018, 1), 0.1, 0.8)
     materials["Pillar"] = surface_mi("MI_NF_Pillar", (0.055, 0.060, 0.072, 1), 0.9, 0.28)
     materials["Rack"] = surface_mi("MI_NF_Rack", (0.018, 0.020, 0.024, 1), 0.9, 0.32)
+    # Pièces du puzzle de la Forge (M_NF_Highlight : le C++ règle EmissiveColor et Highlight)
+    highlight = eal.load_asset(MATERIALS + "/M_NF_Highlight")
+    materials["Module"] = create_material_instance("MI_NF_Module", highlight,
+                                                   vectors={"BaseColor": (0.03, 0.05, 0.08, 1), "EmissiveColor": (0.15, 0.7, 1.0, 1)},
+                                                   scalars={"BaseGlow": 0.5, "HighlightBoost": 4.0, "Metallic": 0.8, "Roughness": 0.3})
+    materials["Orb"] = create_material_instance("MI_NF_Orb", highlight,
+                                                vectors={"BaseColor": (0.6, 0.85, 1.0, 1), "EmissiveColor": (0.3, 0.85, 1.0, 1)},
+                                                scalars={"BaseGlow": 3.0, "HighlightBoost": 6.0, "Metallic": 0.0, "Roughness": 0.2})
+    materials["Crystal"] = create_material_instance("MI_NF_Crystal", highlight,
+                                                    vectors={"BaseColor": (0.1, 0.1, 0.1, 1), "EmissiveColor": (1.0, 1.0, 1.0, 1)},
+                                                    scalars={"BaseGlow": 2.5, "HighlightBoost": 5.0, "Metallic": 0.3, "Roughness": 0.1})
+    materials["Platform"] = surface_mi("MI_NF_Platform", (0.04, 0.05, 0.065, 1), 0.9, 0.25)
+    materials["Bench"] = surface_mi("MI_NF_Bench", (0.05, 0.055, 0.065, 1), 0.85, 0.35)
+
     # Les panneaux et la table passent eux aussi dans la palette sombre
     create_material_instance("MI_NF_Console", surface, vectors={"BaseColor": (0.012, 0.016, 0.024, 1)},
                              scalars={"Metallic": 0.15, "Roughness": 0.75})

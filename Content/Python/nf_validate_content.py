@@ -94,9 +94,22 @@ builders = of_class("BP_NF_NetworkBuilder_C")
 check("1 holotable", len(builders) == 1, len(builders))
 builder = builders[0] if builders else None
 
-buttons = of_class("BP_NF_ConfigButton_C")
-check("13 boutons de configuration", len(buttons) == 13, len(buttons))
-check("Tous les boutons pointent vers l'holotable", all(b.get_editor_property("builder") == builder for b in buttons))
+forges = of_class("NFForge")
+check("1 Forge", len(forges) == 1, len(forges))
+if forges:
+    check("La Forge pointe vers l'holotable", forges[0].get_editor_property("builder") == builder)
+levers = of_class("NFLever")
+check("1 levier", len(levers) == 1, len(levers))
+modules = of_class("NFLayerModule")
+check("4 modules de couche", len(modules) == 4, len(modules))
+pieces = of_class("NFPiece")
+orbs = [p for p in pieces if p.get_editor_property("piece_type") == unreal.NFPieceType.NEURON_ORB]
+crystals = [p for p in pieces if p.get_editor_property("piece_type") == unreal.NFPieceType.ACTIVATION_CRYSTAL]
+check("20 orbes-neurones", len(orbs) == 20, len(orbs))
+check("8 cristaux d'activation", len(crystals) == 8, len(crystals))
+check("Les 4 activations sont disponibles",
+      len(set(str(c.get_editor_property("activation")) for c in crystals)) == 4)
+check("Les pièces ont un material", all(p.get_editor_property("body_material") for p in pieces + modules))
 
 for class_name in ["BP_NF_FloorButton_C", "BP_NF_StatusDisplay_C", "BP_NF_LabDoor_C"]:
     found = of_class(class_name)
@@ -111,8 +124,6 @@ check("Lumières présentes", len(of_class("PointLight")) >= 8, len(of_class("Po
 game_mode = world.get_world_settings().get_editor_property("default_game_mode")
 check("GameMode du niveau -> BP_NF_GameMode", game_mode is not None and game_mode.get_name() == "BP_NF_GameMode_C", game_mode)
 
-actions = sorted(str(b.get_editor_property("action")) for b in buttons)
-lines.append("Actions des boutons : " + ", ".join(actions))
 lines.append("Total acteurs : {}".format(len(actors)))
 lines.append("RÉSULTAT " + ("OK" if not failures else "ÉCHEC ({} problème(s))".format(len(failures))))
 

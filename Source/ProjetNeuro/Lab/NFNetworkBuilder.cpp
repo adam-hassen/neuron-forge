@@ -330,8 +330,8 @@ FString ANFNetworkBuilder::GetHintText() const
 	if (HiddenLayers.Num() == 0)
 	{
 		return bFailed
-			? TEXT("Sans couche cachée, le modèle trace une seule droite :\nXOR n'est pas linéairement séparable. Ajoutez une couche.")
-			: TEXT("Configurez le réseau puis marchez sur le bouton au sol.");
+			? TEXT("Sans couche cachée, le modèle trace une seule droite :\nXOR n'est pas linéairement séparable. Insérez un module de couche dans la Forge.")
+			: TEXT("Assemblez le réseau sur la Forge, puis marchez sur le bouton au sol.");
 	}
 
 	const bool bAllLinear = HiddenLayers.ContainsByPredicate(
@@ -339,15 +339,15 @@ FString ANFNetworkBuilder::GetHintText() const
 	if (bAllLinear)
 	{
 		return bFailed
-			? TEXT("Des couches Linear empilées restent linéaires.\nChoisissez une activation non linéaire (ReLU, Tanh, Sigmoid).")
-			: TEXT("Astuce : une couche Linear n'ajoute aucune non-linéarité.");
+			? TEXT("Des couches Linear empilées restent linéaires.\nPlantez un cristal ReLU, Tanh ou Sigmoid sur un module.")
+			: TEXT("Astuce : sans cristal, un module est Linear et n'ajoute aucune non-linéarité.");
 	}
 
 	if (bFailed)
 	{
 		if (GetLearningRate() <= 0.05f)
 		{
-			return TEXT("Le taux d'apprentissage est très faible :\nle modèle apprend trop lentement. Augmentez-le.");
+			return TEXT("Le taux d'apprentissage est très faible :\nle modèle apprend trop lentement. Tirez le levier.");
 		}
 		if (GetLearningRate() >= 2.f)
 		{
@@ -357,7 +357,7 @@ FString ANFNetworkBuilder::GetHintText() const
 			[](const FNFLayerConfig& Layer) { return Layer.NumNeurons <= 2; });
 		if (bSmallLayer)
 		{
-			return TEXT("Une couche de 1 ou 2 neurones manque de capacité.\nAjoutez des neurones.");
+			return TEXT("Une couche de 1 ou 2 neurones manque de capacité.\nAjoutez des orbes-neurones autour du module.");
 		}
 		return TEXT("Presque ! Essayez une autre activation,\nplus de neurones ou un autre taux d'apprentissage.");
 	}

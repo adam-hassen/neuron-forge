@@ -315,8 +315,8 @@ TSharedRef<SWidget> SNFIntroWidget::BuildWelcomePage()
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 16.f, 0.f, 0.f)
 			[
 				MakeParagraph(LOCTEXT("WelcomeBody2",
-					"Votre outil : l'holotable, au centre de la salle. Vous y assemblez un réseau de neurones, couche par couche, "
-					"puis vous l'entraînez et le regardez apprendre en temps réel."), 17)
+					"Votre outil : la Forge. Vous y assemblez de vos mains un réseau de neurones, pièce par pièce, et l'hologramme "
+					"géant le reconstruit en direct. Puis vous l'entraînez et le regardez apprendre en temps réel."), 17)
 			]
 		]
 		+ SHorizontalBox::Slot().FillWidth(0.85f)
@@ -444,8 +444,9 @@ TSharedRef<SWidget> SNFIntroWidget::BuildMissionPage()
 			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(0.f, 0.f, 14.f, 0.f)
 			[
 				MakeStepCard(1, LOCTEXT("Step1Title", "Concevoir"),
-					LOCTEXT("Step1Body", "Sur la console de droite, visez un bouton et appuyez sur E : ajoutez des couches cachées, "
-						"réglez le nombre de neurones, choisissez la fonction d'activation et le taux d'apprentissage."), NFUI::Accent)
+					LOCTEXT("Step1Body", "Dans l'atelier, prenez les pièces avec E et assemblez-les sur la Forge : un module = une couche "
+						"cachée, une orbe posée autour = un neurone, un cristal planté dessus = l'activation. Le levier règle "
+						"le taux d'apprentissage."), NFUI::Accent)
 			]
 			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(7.f, 0.f)
 			[
@@ -484,7 +485,7 @@ TSharedRef<SWidget> SNFIntroWidget::BuildControlsPage()
 	const TPair<FText, FText> Bindings[] = {
 		{ LOCTEXT("KeyMove", "Z Q S D"), LOCTEXT("ActMove", "Se déplacer") },
 		{ LOCTEXT("KeyLook", "Souris"), LOCTEXT("ActLook", "Regarder") },
-		{ LOCTEXT("KeyUse", "E  /  Clic"), LOCTEXT("ActUse", "Utiliser le bouton visé") },
+		{ LOCTEXT("KeyUse", "E  /  Clic"), LOCTEXT("ActUse", "Prendre, poser, insérer, tirer le levier") },
 		{ LOCTEXT("KeyJump", "Espace"), LOCTEXT("ActJump", "Sauter") },
 		{ LOCTEXT("KeyHelp", "H"), LOCTEXT("ActHelp", "Revoir ce briefing") },
 	};

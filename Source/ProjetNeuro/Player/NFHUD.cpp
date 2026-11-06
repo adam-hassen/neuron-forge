@@ -6,6 +6,7 @@
 #include "Engine/Font.h"
 #include "GameFramework/Pawn.h"
 #include "Interaction/NFInteractable.h"
+#include "Interaction/NFGrabberComponent.h"
 #include "Interaction/NFInteractorComponent.h"
 
 void ANFHUD::DrawHUD()
@@ -48,6 +49,18 @@ void ANFHUD::DrawCrosshairAndPrompt()
 	const float CenterY = Canvas->ClipY * 0.5f;
 
 	APawn* Pawn = GetOwningPawn();
+
+	// Pièce en main : le réticule indique où elle sera posée ou insérée
+	const UNFGrabberComponent* Grabber = Pawn ? Pawn->FindComponentByClass<UNFGrabberComponent>() : nullptr;
+	if (Grabber && Grabber->IsHolding())
+	{
+		const bool bSnap = Grabber->GetSnapTarget() != nullptr;
+		const FLinearColor HoldColor = bSnap ? FLinearColor(0.2f, 1.f, 0.5f) : FocusCrosshairColor;
+		DrawRect(HoldColor, CenterX - 5.f, CenterY - 5.f, 10.f, 10.f);
+		DrawCenteredText(FString::Printf(TEXT("[E] %s"), *Grabber->GetDropPrompt().ToString()), HoldColor, CenterX, CenterY + 22.f, 1.2f);
+		return;
+	}
+
 	const UNFInteractorComponent* Interactor = Pawn ? Pawn->FindComponentByClass<UNFInteractorComponent>() : nullptr;
 	AActor* Focus = Interactor ? Interactor->GetFocusedActor() : nullptr;
 	const bool bCanInteract = Focus && Interactor->CanInteractWithFocus();

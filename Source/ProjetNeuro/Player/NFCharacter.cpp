@@ -13,6 +13,7 @@
 #include "GameFramework/PlayerController.h"
 #include "InputAction.h"
 #include "InputMappingContext.h"
+#include "Interaction/NFGrabberComponent.h"
 #include "Interaction/NFInteractorComponent.h"
 #include "ProjetNeuro.h"
 #include "UObject/ConstructorHelpers.h"
@@ -72,6 +73,7 @@ ANFCharacter::ANFCharacter()
 
 	// --- Interaction ---
 	Interactor = CreateDefaultSubobject<UNFInteractorComponent>(TEXT("Interactor"));
+	Grabber = CreateDefaultSubobject<UNFGrabberComponent>(TEXT("Grabber"));
 
 	// --- Assets du template ---
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MeshAsset(NFCharacterAssets::Mesh);
@@ -219,6 +221,13 @@ void ANFCharacter::Look(const FInputActionValue& Value)
 
 void ANFCharacter::Interact()
 {
+	// Mains pleines : on pose (ou on insère) la pièce tenue
+	if (Grabber && Grabber->IsHolding())
+	{
+		Grabber->Drop();
+		return;
+	}
+	// Sinon on agit sur l'objet visé : une pièce se laisse attraper, un levier se tire...
 	if (Interactor)
 	{
 		Interactor->TryInteract();

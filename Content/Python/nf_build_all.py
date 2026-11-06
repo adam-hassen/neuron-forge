@@ -36,7 +36,7 @@ def main():
         materials = step("Materials", nf_assets.create_materials)
         step("Materials du décor (ambiance, sol, serveurs, hologrammes)", nf_assets.create_lab_materials, materials)
         blueprints = step("Blueprints", nf_assets.create_blueprints, materials, sounds)
-        step("Niveau " + nf_level.LEVEL_PATH, nf_level.build_level, blueprints, materials)
+        step("Niveau " + nf_level.LEVEL_PATH, nf_level.build_level, blueprints, materials, sounds)
         step("Enregistrement", nf_assets.save_all)
         report.append("Sons : " + ", ".join(sorted(sounds)))
         report.append("Materials : " + ", ".join(sorted(m.get_name() for m in materials.values() if m)))

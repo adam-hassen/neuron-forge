@@ -4,7 +4,7 @@
 
 Projet réalisé pour la matière **Réalité étendue et interactions multimodales** à l'**ENSIM** (Le Mans Université).
 
-![Le laboratoire Neuron Forge après la réussite du modèle](Docs/Images/NF_Holotable.png)
+![Le grand hall de Neuron Forge : la Forge et l'hologramme géant](Docs/Images/NF_Hologramme.png)
 
 ---
 
@@ -25,7 +25,7 @@ Projet réalisé pour la matière **Réalité étendue et interactions multimoda
 
 Le deep learning est souvent enseigné de façon abstraite : des équations, des courbes de perte, du code. **Neuron Forge** rend ces notions *tangibles* en plaçant le joueur dans un laboratoire où le réseau de neurones devient un objet physique qu'il assemble de ses mains.
 
-Le joueur doit **concevoir l'architecture d'un modèle** (nombre de couches cachées, nombre de neurones par couche, fonction d'activation, taux d'apprentissage), **lancer l'entraînement** et **observer** en temps réel la perte diminuer, les poids évoluer et les neurones s'allumer. La porte du laboratoire ne s'ouvre que si le modèle atteint la **précision cible**.
+Le joueur **assemble de ses mains l'architecture d'un modèle**, comme un puzzle : il porte des pièces physiques jusqu'à la Forge (un module = une couche cachée, une orbe = un neurone, un cristal = une fonction d'activation, un levier = le taux d'apprentissage). Il **lance l'entraînement** et **observe** sur un hologramme géant la perte diminuer, les poids évoluer et les signaux circuler. La porte du laboratoire ne s'ouvre que si le modèle atteint la **précision cible**.
 
 Ce que le joueur apprend en jouant :
 
@@ -49,11 +49,13 @@ Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui 
 
 1. **Briefing de mission** : au lancement, un écran d'introduction en 4 pages (jeu en pause) présente le contexte, le problème XOR, les 3 étapes de la mission et les commandes. Il se rappelle à tout moment avec `H`. Pendant la partie, un panneau d'objectifs en haut à gauche coche les étapes et compte les essais.
 2. **Entrée dans le laboratoire** : le joueur arrive dans une salle fermée par une porte. L'écran d'état (Text Render) affiche la mission : « Entraînez un modèle qui résout XOR avec 100 % de précision ».
-3. **Construction du réseau** sur l'**holotable** centrale, où le réseau est représenté en 3D : chaque neurone est une sphère émissive et chaque poids un lien coloré selon son signe et épais selon son amplitude. Les panneaux de configuration permettent de :
-   - ajouter ou retirer une couche cachée (jusqu'à 3),
-   - augmenter ou diminuer le nombre de neurones d'une couche (1 à 8),
-   - changer la fonction d'activation (ReLU, Sigmoid, Tanh, Linear),
-   - régler le taux d'apprentissage.
+3. **Assemblage du réseau sur la Forge** : dans le grand hall, l'atelier propose trois établis de pièces que le joueur attrape (`E`), porte et emboîte :
+   - un **module de couche**, inséré dans l'une des 3 fentes de la Forge, ajoute une couche cachée ;
+   - chaque **orbe-neurone** posée autour d'un module (jusqu'à 8) ajoute un neurone à cette couche ;
+   - un **cristal d'activation** planté sur le module choisit sa fonction (ReLU orange, Tanh violet, Sigmoid vert, Linear bleu ; sans cristal, la couche est Linear) ;
+   - le **levier** fait défiler le taux d'apprentissage (0,01 → 2).
+
+   La Forge lit l'assemblage en continu et l'**hologramme géant** reconstruit le réseau en direct : chaque neurone est une sphère émissive, chaque poids un lien coloré selon son signe et épais selon son amplitude. Pour modifier le réseau, il suffit de retirer ou de déplacer une pièce. Pendant l'entraînement, l'assemblage est verrouillé.
 4. **Lancement de l'entraînement** : le joueur marche sur le **bouton au sol**. L'entraînement se déroule progressivement (quelques epochs par frame) pour que l'on voie le réseau apprendre.
 5. **Suivi en direct** : l'écran d'état affiche l'architecture, l'epoch courante, la perte, la précision et les prédictions sur les 4 exemples XOR.
 6. **Validation** : si la précision cible est atteinte, un **son de validation** retentit et la **porte du labo s'ouvre** avec une animation. Sinon, le joueur modifie son architecture et réessaie.
@@ -63,17 +65,17 @@ Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui 
 |:---:|:---:|:---:|
 | ![Briefing](Docs/Images/NF_Intro.png) | ![Mission](Docs/Images/NF_IntroMission.png) | ![Fin](Docs/Images/NF_Fin.png) |
 
-| Le labo au repos | Pendant l'entraînement | Baies de serveurs |
+| Pendant l'entraînement | Baies de serveurs et passerelles | Porte du labo |
 |:---:|:---:|:---:|
-| ![Labo](Docs/Images/NF_Entree.png) | ![Entraînement](Docs/Images/NF_Entrainement.png) | ![Serveurs](Docs/Images/NF_Serveurs.png) |
+| ![Entraînement](Docs/Images/NF_Entrainement.png) | ![Serveurs](Docs/Images/NF_Serveurs.png) | ![Porte](Docs/Images/NF_Porte.png) |
 
-| Vue d'ensemble du labo | Console de configuration | Porte ouverte après validation |
+| Le grand hall | La Forge (module, orbes, cristal) | L'atelier |
 |:---:|:---:|:---:|
-| ![Entrée du labo](Docs/Images/NF_Entree.png) | ![Console](Docs/Images/NF_Console.png) | ![Porte](Docs/Images/NF_Porte.png) |
+| ![Hall](Docs/Images/NF_Entree.png) | ![Forge](Docs/Images/NF_Forge.png) | ![Atelier](Docs/Images/NF_Atelier.png) |
 
 **Contrôles (PC)** : `ZQSD`/`WASD` pour se déplacer, la souris pour regarder, `Espace` pour sauter, `E` ou clic gauche pour interagir avec l'objet visé. `H` ou `F1` pour revoir le briefing. À la manette : stick gauche/droit, `A` pour sauter, `X` pour interagir.
 
-L'objet visé est mis en surbrillance et le réticule affiche l'action possible, par exemple « [E] Ajouter un neurone ».
+L'objet visé est mis en surbrillance et le réticule affiche l'action possible : « [E] Prendre : orbe-neurone », puis, la pièce en main, « [E] Insérer orbe-neurone dans le module » quand un emplacement compatible est à portée (réticule vert).
 
 ---
 
@@ -87,7 +89,8 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible,
 | **Text Render** | Affichage dans le monde 3D de la mission, de l'état de l'entraînement (epoch, perte, précision) et des libellés des panneaux. |
 | **Son de validation** | Son joué à la réussite du modèle, au moment de l'ouverture de la porte. |
 | **Materials émissifs** | Les neurones brillent selon leur fonction d'activation (couleur) et leur valeur d'activation (intensité), grâce à des Material Instances dynamiques. |
-| **Interactions multimodales** | Une interface d'interaction commune (`INFInteractable`) sépare l'objet interactif de la manière d'interagir (visée + touche sur PC, et plus tard main/contrôleur en VR). |
+| **Interactions multimodales** | Une interface d'interaction commune (`INFInteractable`) sépare l'objet interactif de la manière d'interagir (visée + touche sur PC, et plus tard main/contrôleur en VR). La prise en main des pièces (`UNFGrabberComponent`) accepte elle aussi une main VR comme source (`SetHoldSource`). |
+| **Manipulation d'objets physiques** | Les pièces du puzzle sont des objets physiques que l'on attrape, porte, pose ou emboîte dans des emplacements (sockets) typés. |
 
 ---
 
@@ -108,6 +111,11 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible,
 | Entraînement | `UNFTrainerComponent` | Entraînement réparti sur les frames (epochs par seconde réglables) ; états Idle / Training / Succeeded / Failed ; cible : précision 100 % **et** perte < 0,1 ; échec après 2000 epochs ; événements `OnStateChanged` et `OnProgress`. |
 | Interaction | `INFInteractable` | Interface commune à tous les objets interactifs : `CanInteract`, `Interact`, `OnFocusBegin`, `OnFocusEnd`, `GetInteractionPrompt`. L'objet ne sait pas comment on interagit avec lui. |
 | Interaction | `UNFInteractorComponent` | Ce qui interagit : un rayon depuis la caméra (PC) ou depuis un composant quelconque via `SetTraceSource` (contrôleur VR), et `InteractWith` pour un contact direct (main VR). |
+| Interaction | `UNFGrabberComponent` | Prise en main : la pièce attrapée flotte devant la caméra (ou dans une main VR via `SetHoldSource`) ; posée près d'un emplacement compatible, elle s'y emboîte. |
+| Forge | `ANFPiece`, `UNFSocketComponent` | Pièce physique du puzzle (orbe, cristal) et emplacement typé qui l'accueille ; emboîtement par proximité, retour automatique si une pièce tombe hors du hall, verrouillage pendant l'entraînement. |
+| Forge | `ANFLayerModule` | Module de couche : 8 emplacements d'orbes en couronne + 1 emplacement de cristal ; résumé flottant « 4 neurones · Tanh ». |
+| Forge | `ANFForge` | Rail d'assemblage (entrées, 3 fentes, sortie) : lit les modules insérés et envoie l'architecture à l'hologramme. |
+| Forge | `ANFLever` | Levier du taux d'apprentissage : chaque traction passe au cran suivant, cadran lumineux. |
 | Interaction | `ANFInteractableActor` | Acteur interactif de base : mesh, texte d'aide, surbrillance (paramètre de material `Highlight` + Custom Depth), événement `OnInteracted`. |
 | Joueur | `ANFCharacter` | Personnage FPS en C++ reprenant la configuration du template (bras FP, corps en ombre, caméra sur la tête, FOV first person) et ses assets ; ajoute l'action « Interagir ». |
 | Joueur | `ANFPlayerController`, `ANFPlayerCameraManager`, `ANFHUD` | Contrôleur, limites de caméra du template, réticule, texte d'aide et messages temporaires dessinés au Canvas. |
@@ -117,7 +125,7 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible,
 | Interface | `SNFEndScreenWidget` | Écran « Mission accomplie » : statistiques, leçon pédagogique, Rejouer / Quitter. |
 | Interface | `NFUIStyle` | Charte graphique commune : couleurs, polices, cartes arrondies, styles de boutons. |
 | Labo | `ANFNetworkBuilder` | Holotable : configuration du réseau (actions `ENFConfigAction`), conseils pédagogiques, visualisation 3D en instances (neurones = sphères colorées selon l'activation et lumineuses selon leur valeur, poids = cylindres bleus/rouges selon le signe et épais selon l'amplitude), défilement des exemples XOR. |
-| Labo | `ANFConfigButton` | Bouton mural : applique une action sur une couche ; grisé si l'action est impossible (couche absente, limite atteinte, entraînement en cours) ; texte d'aide dynamique. |
+| Labo | `ANFConfigButton` | Bouton mural de configuration (première version du jeu, remplacée par la Forge ; conservé pour les tests et d'autres niveaux). |
 | Labo | `ANFFloorButton` | Bouton au sol : trigger Box Collision qui détecte le joueur, plaque qui s'enfonce et s'illumine, lance l'entraînement. |
 | Labo | `ANFStatusDisplay` | Écran d'état en Text Render : mission, architecture, epoch, perte, précision, prédictions sur les 4 cas, conseil. |
 | Labo | `ANFLabDoor` | Porte coulissante animée par une timeline (`FTimeline` + courbe ease-in-out) ; s'ouvre à la réussite avec le son de validation ; voyant rouge → vert. |
@@ -127,7 +135,7 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible,
 
 **Décor du labo** : ambiance sombre de laboratoire de nuit, sol miroir quadrillé de lignes lumineuses, liserés néon sur les murs, les piliers, la porte et les panneaux, baies de serveurs couvertes de LED qui clignotent, socle et anneau holographiques animés au-dessus de l'holotable, cubes de données en orbite, brume volumétrique. Des impulsions lumineuses parcourent les poids du réseau, plus vite pendant l'entraînement. Toute la salle change de couleur selon l'état du modèle.
 
-**Parcours pédagogique prévu** : le réseau de départ n'a pas de couche cachée et échoue (« XOR n'est pas linéairement séparable ») ; la couche ajoutée est Linear et échoue aussi (« des couches Linear empilées restent linéaires ») ; en passant à Tanh, ReLU ou Sigmoid, le modèle réussit et la porte s'ouvre.
+**Parcours pédagogique prévu** : la Forge vide (aucune couche cachée) échoue (« XOR n'est pas linéairement séparable ») ; un module garni d'orbes mais sans cristal est Linear et échoue aussi (« des couches Linear empilées restent linéaires ») ; avec un cristal Tanh, ReLU ou Sigmoid et assez d'orbes, le modèle réussit et la porte s'ouvre.
 
 ### Arborescence
 
@@ -221,8 +229,8 @@ Le rapport est écrit dans `Saved/nf_build_report.txt`. `nf_validate_content.py`
 | `nf_build_all.py` | Point d'entrée : sons → materials → Blueprints → niveau `L_Lab`, avec rapport. |
 | `nf_audio.py` | Synthèse des 7 effets sonores en Python pur (WAV dans `RawAssets/Audio/`) : validation (arpège do-mi-sol-do), clic, bouton au sol, lancement, échec, porte, fin de niveau. |
 | `nf_assets.py` | Materials (`M_NF_Instanced` lu par instance, `M_NF_Highlight` avec paramètre `Highlight`, `M_NF_Surface`) et leurs instances ; décor animé (`MPC_NF_Lab`, `M_NF_Trim` liserés d'ambiance, `M_NF_FloorGrid` grille lumineuse, `M_NF_ServerLEDs` LED aléatoires, `M_NF_Holo` anneaux holographiques) ; import des sons ; Blueprints enfants `BP_NF_*` avec materials et sons assignés. |
-| `nf_level.py` | Construction du niveau `L_Lab` : salle 16 × 14 m, couloir de sortie, éclairage (lumières d'ambiance, projecteurs, brume volumétrique, post-process), holotable, écran d'état, bouton au sol, console de 13 boutons, panneau « mode d'emploi », porte, zone de sortie, décor (piliers, liserés, baies de serveurs, hologrammes) et acteur d'ambiance. |
-| `nf_validate_content.py` | Contrôle du contenu enregistré : materials et sons des Blueprints, acteurs du niveau et leurs références, GameMode. |
+| `nf_level.py` | Construction du niveau `L_Lab`, un grand hall de 45 × 30 m sur 10 m de haut : atelier (3 établis garnis de 4 modules, 20 orbes et 8 cristaux), Forge et levier, hologramme géant, bouton au sol, écran d'état, panneau « mode d'emploi », porte, couloir et zone de sortie ; passerelles, piliers, liserés, baies de serveurs, hologrammes animés ; éclairage d'ambiance, projecteurs, brume volumétrique et acteur d'ambiance. |
+| `nf_validate_content.py` | Contrôle du contenu enregistré : materials et sons des Blueprints, acteurs du niveau (Forge, levier, 4 modules, 20 orbes, 8 cristaux) et leurs références, GameMode. |
 | `nf_check_env.py` | Vérifie que Python fonctionne, que les classes C++ du jeu sont chargées et que le personnage a bien récupéré les assets du template (rapport dans `Saved/nf_check_env.txt`). |
 | `nf_dump_template.py` | Inventaire des Blueprints du template First Person : composants, assets, réglages et mappings d'entrée (rapport dans `Saved/nf_dump_template.txt`). |
 
@@ -249,9 +257,10 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `Lab.BuilderEditing` | Actions de configuration et leurs limites, verrouillage pendant l'entraînement, bouton lié à une couche absente puis présente. |
 | `Lab.FloorButtonStartsTraining` | Un pawn qui entre dans la Box Collision du bouton au sol lance l'entraînement ; le bouton se relâche quand il repart. |
 | `Lab.XORSuccessOpensDoor` | Bout en bout : `2 - 4 Tanh - 1 Sigmoid` réussit (57 epochs) et la porte s'ouvre complètement. |
+| `Lab.ForgeAssembly` | Puzzle de la Forge : module vide ignoré, orbes = neurones, cristal = activation, emboîtement par proximité, types incompatibles refusés, prise en main d'une pièce emboîtée, verrouillage pendant l'entraînement. |
 | `Lab.LinearModelKeepsDoorClosed` | Sans couche cachée : échec, porte fermée, conseil « Ajoutez une couche », configuration de nouveau modifiable. |
 
-**Test de fumée du niveau réel** (`Smoke.LabPlaythrough`, contexte jeu uniquement) : il lance le jeu sur `L_Lab` et rejoue le parcours du joueur. Le joueur vise et actionne les boutons de la console par le vrai rayon d'interaction et règle une couche Tanh. Il monte ensuite sur le bouton au sol, attend que le modèle soit validé et que la porte s'ouvre, puis entre dans la zone de sortie. Résultat actuel : modèle validé en 57 epochs, porte ouverte en 2,1 s.
+**Test de fumée du niveau réel** (`Smoke.LabPlaythrough`, contexte jeu uniquement) : il lance le jeu sur `L_Lab` et rejoue le parcours du joueur : briefing, module attrapé en le visant puis inséré dans la fente 1, 4 orbes et un cristal Tanh emboîtés, tour complet du levier, bouton au sol, validation du modèle, ouverture de la porte, sortie et écran de fin. Résultat actuel : modèle validé en 57 epochs, porte ouverte en 2,1 s.
 
 ```bat
 "<UE_5.6>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<chemin>\ProjetNeuro.uproject" -game -nullrhi -nosound -ExecCmds="Automation RunTests NeuronForge.Smoke; Quit" -TestExit="Automation Test Queue Empty"
@@ -286,6 +295,7 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | 5 | Test de bout en bout et finitions | ✅ Terminé |
 | 6 | Interface « pro » : briefing animé, objectifs en jeu, écran de fin | ✅ Terminé |
 | 7 | Refonte visuelle du labo : ambiance sci-fi, éclairage réactif, animations | ✅ Terminé |
+| 8 | Forge à pièces (puzzle physique) et grand hall de 45 × 30 m | ✅ Terminé |
 
 ---
 
@@ -298,6 +308,6 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 - **Nouveaux niveaux et datasets** : cercles concentriques, spirales, classification multi-classes, chacun avec sa propre précision cible.
 - **Visualisation de la frontière de décision** sur un écran du labo.
 - **Optimiseurs supplémentaires** (Momentum, Adam) et choix de la fonction de perte.
-- **Mode réalité virtuelle** : interactions à la main ou au contrôleur grâce à l'interface `INFInteractable` déjà en place.
+- **Mode réalité virtuelle** : interactions à la main ou au contrôleur grâce à l'interface `INFInteractable` et au `UNFGrabberComponent` déjà prévus pour une main VR.
 - **Interface UMG** pour le menu principal et les explications pédagogiques.
 - **Retour pédagogique** : messages d'aide quand le modèle échoue (par exemple « Essayez d'ajouter une couche cachée »).

@@ -1,15 +1,15 @@
-"""Neuron Forge - construction du niveau du labo (L_Lab).
+"""Neuron Forge - construction du niveau L_Lab : le grand hall de la Forge.
 
-Plan (vue de dessus, unités en cm, le joueur entre côté -X et regarde vers +X) :
+Plan (vue de dessus, cm). Le joueur entre côté -X et regarde vers +X (sa gauche = -Y).
 
-    Y=+700 ┌──────────────────────────────────────────────┐
-           │              [Panneau de configuration]      │
-           │                                              ├────────────┐
-    spawn  │   ●        [Bouton sol] [Holotable] [Écran]  Porte  Sortie │
-           │                                              ├────────────┘
-           │              [Mode d'emploi]                 │
-    Y=-700 └──────────────────────────────────────────────┘
-         X=-1000                                        X=600       X=1220
+  Y=+1500 ┌────────────── passerelle + baies de serveurs ──────────────┐
+          │  [Mode d'emploi]                  [Levier]                 │
+          │                   [Bouton sol] [FORGE]   [HOLOGRAMME]      ├──────┐
+  spawn ● │                                                     Porte  Sortie │
+          │       ATELIER : [modules] [orbes] [cristaux]               ├──────┘
+          │                                          [Écran d'état]    │
+  Y=-1500 └────────────── passerelle + baies de serveurs ──────────────┘
+        X=-2250                                                    X=2250   X=2850
 
 Le niveau est entièrement recréé à chaque exécution.
 """
@@ -18,27 +18,35 @@ import math
 import unreal
 
 LEVEL_PATH = "/Game/NeuronForge/Maps/L_Lab"
-
 CUBE = "/Engine/BasicShapes/Cube.Cube"
-WALL_MATERIAL = "/Game/LevelPrototyping/Materials/MI_PrototypeGrid_Gray.MI_PrototypeGrid_Gray"
-FLOOR_MATERIAL = "/Game/LevelPrototyping/Materials/MI_PrototypeGrid_TopDark.MI_PrototypeGrid_TopDark"
+SPHERE = "/Engine/BasicShapes/Sphere.Sphere"
+CONE = "/Engine/BasicShapes/Cone.Cone"
+PLANE = "/Engine/BasicShapes/Plane.Plane"
 
-ROOM_MIN_X, ROOM_MAX_X = -1000.0, 600.0
-ROOM_HALF_Y = 700.0
-ROOM_HEIGHT = 400.0
-WALL = 20.0
+HALL_MIN_X, HALL_MAX_X = -2250.0, 2250.0
+HALL_HALF_Y = 1500.0
+HALL_HEIGHT = 1000.0
+WALL = 30.0
 
 DOOR_WIDTH, DOOR_HEIGHT, DOOR_FRAME = 240.0, 300.0, 25.0
-CORRIDOR_END_X, CORRIDOR_HALF_Y = 1220.0, 200.0
+CORRIDOR_END_X, CORRIDOR_HALF_Y, CORRIDOR_HEIGHT = 2850.0, 220.0, 420.0
 
-# Le C++ des acteurs du labo suppose que le joueur les regarde depuis leur axe +X :
-# yaw 180 les tourne vers l'entrée du labo (-X).
+FORGE_X = 0.0
+HOLO_X = 950.0
+HOLO_SCALE = 3.5
+CATWALK_Z = 520.0
+CATWALK_DEPTH = 260.0
+
+# Les acteurs du labo sont conçus pour être regardés depuis leur axe +X :
+# yaw 180 les tourne vers l'entrée du hall (-X).
 FACE_PLAYER = 180.0
 
 eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 eal = unreal.EditorAssetLibrary
 
+
+# --- Utilitaires -------------------------------------------------------------
 
 def _vec(x, y, z):
     return unreal.Vector(x, y, z)
@@ -48,8 +56,8 @@ def _rot(yaw=0.0, pitch=0.0, roll=0.0):
     return unreal.Rotator(roll=roll, pitch=pitch, yaw=yaw)
 
 
-def _spawn(actor_class, location, yaw=0.0, label=None, folder=None):
-    actor = eas.spawn_actor_from_class(actor_class, _vec(*location), _rot(yaw))
+def _spawn(actor_class, location, yaw=0.0, label=None, folder=None, pitch=0.0):
+    actor = eas.spawn_actor_from_class(actor_class, _vec(*location), _rot(yaw, pitch))
     if actor is None:
         raise RuntimeError("Impossible de créer l'acteur {}".format(label or actor_class))
     if label:
@@ -59,7 +67,7 @@ def _spawn(actor_class, location, yaw=0.0, label=None, folder=None):
     return actor
 
 
-def _box(label, center, size, material, folder="Salle"):
+def _box(label, center, size, material, folder="Hall"):
     """Bloc de décor : cube de 100 cm mis à l'échelle (pivot au centre)."""
     actor = _spawn(unreal.StaticMeshActor, center, label=label, folder=folder)
     component = actor.static_mesh_component
@@ -86,10 +94,22 @@ def _mood_tag(actor):
     actor.set_editor_property("tags", [unreal.Name("NFMood")])
 
 
+def _point_light(label, location, intensity, radius, color=(0.8, 0.9, 1.0), shadows=True, mood=True):
+    actor = _spawn(unreal.PointLight, location, label=label, folder="Lumières")
+    light = actor.point_light_component
+    light.set_mobility(unreal.ComponentMobility.MOVABLE)
+    light.set_editor_property("intensity_units", unreal.LightUnits.LUMENS)
+    light.set_intensity(intensity)
+    light.set_attenuation_radius(radius)
+    light.set_light_color(unreal.LinearColor(*color, 1.0))
+    light.set_cast_shadows(shadows)
+    if mood:
+        _mood_tag(actor)
+    return actor
+
+
 def _spot_light(label, location, pitch, intensity, radius, inner, outer, color=(1.0, 1.0, 1.0), mood=False, yaw=0.0):
-    actor = eas.spawn_actor_from_class(unreal.SpotLight, _vec(*location), _rot(yaw=yaw, pitch=pitch))
-    actor.set_actor_label(label)
-    actor.set_folder_path("Lumières")
+    actor = _spawn(unreal.SpotLight, location, yaw=yaw, pitch=pitch, label=label, folder="Lumières")
     light = actor.spot_light_component
     light.set_mobility(unreal.ComponentMobility.MOVABLE)
     light.set_editor_property("intensity_units", unreal.LightUnits.LUMENS)
@@ -104,201 +124,13 @@ def _spot_light(label, location, pitch, intensity, radius, inner, outer, color=(
     return actor
 
 
-def _point_light(label, location, intensity, radius, color=(1.0, 0.97, 0.92), shadows=True):
-    actor = _spawn(unreal.PointLight, location, label=label, folder="Lumières")
-    light = actor.point_light_component
-    light.set_mobility(unreal.ComponentMobility.MOVABLE)
-    light.set_editor_property("intensity_units", unreal.LightUnits.LUMENS)
-    light.set_intensity(intensity)
-    light.set_attenuation_radius(radius)
-    light.set_light_color(unreal.LinearColor(*color, 1.0))
-    light.set_cast_shadows(shadows)
-    return actor
-
-
-# --- Construction ----------------------------------------------------------
-
-def build_room(mats):
-    wall_mat = mats["Wall"]
-    floor_mat = mats["FloorGrid"]
-    ceiling_mat = mats["Ceiling"]
-    length = ROOM_MAX_X - ROOM_MIN_X
-    center_x = (ROOM_MIN_X + ROOM_MAX_X) / 2.0
-    width = 2 * ROOM_HALF_Y
-
-    _box("Sol", (center_x, 0, -WALL / 2), (length + 2 * WALL, width + 2 * WALL, WALL), floor_mat)
-    _box("Plafond", (center_x, 0, ROOM_HEIGHT + WALL / 2), (length + 2 * WALL, width + 2 * WALL, WALL), ceiling_mat)
-    _box("Mur_Entree", (ROOM_MIN_X - WALL / 2, 0, ROOM_HEIGHT / 2), (WALL, width + 2 * WALL, ROOM_HEIGHT), wall_mat)
-    _box("Mur_Nord", (center_x, ROOM_HALF_Y + WALL / 2, ROOM_HEIGHT / 2), (length, WALL, ROOM_HEIGHT), wall_mat)
-    _box("Mur_Sud", (center_x, -ROOM_HALF_Y - WALL / 2, ROOM_HEIGHT / 2), (length, WALL, ROOM_HEIGHT), wall_mat)
-
-    # Mur du fond percé pour la porte (largeur porte + cadre)
-    opening = DOOR_WIDTH / 2 + DOOR_FRAME
-    segment = ROOM_HALF_Y + WALL - opening
-    wall_x = ROOM_MAX_X + WALL / 2
-    _box("Mur_Porte_Gauche", (wall_x, opening + segment / 2, ROOM_HEIGHT / 2), (WALL, segment, ROOM_HEIGHT), wall_mat)
-    _box("Mur_Porte_Droite", (wall_x, -opening - segment / 2, ROOM_HEIGHT / 2), (WALL, segment, ROOM_HEIGHT), wall_mat)
-    lintel = ROOM_HEIGHT - (DOOR_HEIGHT + DOOR_FRAME)
-    _box("Mur_Porte_Linteau", (wall_x, 0, ROOM_HEIGHT - lintel / 2), (WALL, 2 * opening, lintel), wall_mat)
-
-    # Couloir de sortie
-    corridor_len = CORRIDOR_END_X - (ROOM_MAX_X + WALL)
-    corridor_x = ROOM_MAX_X + WALL + corridor_len / 2
-    corridor_w = 2 * CORRIDOR_HALF_Y
-    _box("Couloir_Sol", (corridor_x, 0, -WALL / 2), (corridor_len, corridor_w + 2 * WALL, WALL), floor_mat, "Couloir")
-    _box("Couloir_Plafond", (corridor_x, 0, ROOM_HEIGHT + WALL / 2), (corridor_len, corridor_w + 2 * WALL, WALL), ceiling_mat, "Couloir")
-    _box("Couloir_Mur_Nord", (corridor_x, CORRIDOR_HALF_Y + WALL / 2, ROOM_HEIGHT / 2), (corridor_len, WALL, ROOM_HEIGHT), wall_mat, "Couloir")
-    _box("Couloir_Mur_Sud", (corridor_x, -CORRIDOR_HALF_Y - WALL / 2, ROOM_HEIGHT / 2), (corridor_len, WALL, ROOM_HEIGHT), wall_mat, "Couloir")
-    _box("Couloir_Fond", (CORRIDOR_END_X + WALL / 2, 0, ROOM_HEIGHT / 2), (WALL, corridor_w + 2 * WALL, ROOM_HEIGHT), wall_mat, "Couloir")
-
-    # Bandeaux lumineux au plafond
-    for i, x in enumerate((-750, -350, 50, 400)):
-        for j, y in enumerate((-350, 350)):
-            _box("Bandeau_{}_{}".format(i, j), (x, y, ROOM_HEIGHT - 3), (260, 24, 6), mats["Light"], "Lumières")
-
-
-def build_lighting():
-    # Éclairage général doux et froid, teinté par l'ambiance
-    for i, x in enumerate((-750, -350, 50, 400)):
-        for j, y in enumerate((-350, 350)):
-            light = _point_light("Lumiere_{}_{}".format(i, j), (x, y, ROOM_HEIGHT - 40), 600.0, 850.0,
-                                 color=(0.80, 0.90, 1.0), shadows=(i % 2 == 0))
-            _mood_tag(light)
-    corridor = _point_light("Lumiere_Couloir", (950, 0, ROOM_HEIGHT - 40), 1800.0, 700.0, color=(0.75, 1.0, 0.8))
-    _mood_tag(corridor)
-
-    # Projecteurs : l'holotable, les deux panneaux, la porte
-    _spot_light("Spot_Holotable", (0, 0, ROOM_HEIGHT - 5), -90.0, 1800.0, 700.0, 22.0, 38.0, (0.6, 0.85, 1.0), mood=True)
-    _spot_light("Spot_Console", (-300, 430, ROOM_HEIGHT - 10), -55.0, 700.0, 800.0, 25.0, 45.0, (0.9, 0.95, 1.0))
-    _spot_light("Spot_Aide", (-300, -430, ROOM_HEIGHT - 10), -55.0, 700.0, 800.0, 25.0, 45.0, (0.9, 0.95, 1.0))
-    _spot_light("Spot_Porte", (300, 0, ROOM_HEIGHT - 10), -35.0, 1200.0, 900.0, 20.0, 40.0, (0.8, 0.9, 1.0), mood=True)
-
-    sky = _spawn(unreal.SkyLight, (0, 0, 300), label="SkyLight", folder="Lumières")
-    sky.light_component.set_intensity(0.15)
-
-    # Brume volumétrique : rend visibles les faisceaux des projecteurs
-    fog = _spawn(unreal.ExponentialHeightFog, (0, 0, 0), label="Brume", folder="Lumières")
-    fog_component = fog.get_editor_property("component")
-    fog_component.set_editor_property("fog_density", 0.012)
-    fog_component.set_editor_property("fog_height_falloff", 0.4)
-    fog_component.set_editor_property("fog_inscattering_luminance", unreal.LinearColor(0.005, 0.01, 0.02, 1.0))
-    fog_component.set_editor_property("enable_volumetric_fog", True)
-    fog_component.set_editor_property("volumetric_fog_extinction_scale", 0.6)
-
-    ppv = _spawn(unreal.PostProcessVolume, (0, 0, 200), label="PostProcess", folder="Lumières")
-    ppv.set_editor_property("unbound", True)
-    settings = ppv.get_editor_property("settings")
-    settings.set_editor_property("override_auto_exposure_min_brightness", True)
-    # Exposition quasi fixe et sombre : ambiance de labo de nuit, les éléments lumineux ressortent
-    settings.set_editor_property("auto_exposure_min_brightness", 1.2)
-    settings.set_editor_property("override_auto_exposure_max_brightness", True)
-    settings.set_editor_property("auto_exposure_max_brightness", 1.6)
-    settings.set_editor_property("override_bloom_intensity", True)
-    settings.set_editor_property("bloom_intensity", 1.3)
-    settings.set_editor_property("override_vignette_intensity", True)
-    settings.set_editor_property("vignette_intensity", 0.5)
-    ppv.set_editor_property("settings", settings)
-
-
-def build_lab(blueprints, mats):
-    """Place les acteurs de gameplay et les relie à l'holotable."""
-    builder = _spawn(blueprints["NetworkBuilder"].generated_class(), (0, 0, 0), FACE_PLAYER, "Holotable", "Gameplay")
-
-    display = _spawn(blueprints["StatusDisplay"].generated_class(), (ROOM_MAX_X - 8, 330, 215), FACE_PLAYER, "EcranEtat", "Gameplay")
-    display.set_editor_property("builder", builder)
-
-    floor_button = _spawn(blueprints["FloorButton"].generated_class(), (-280, 0, 0), FACE_PLAYER, "BoutonSol", "Gameplay")
-    floor_button.set_editor_property("builder", builder)
-
-    door = _spawn(blueprints["LabDoor"].generated_class(), (ROOM_MAX_X + WALL / 2, 0, 0), FACE_PLAYER, "PorteLabo", "Gameplay")
-    door.set_editor_property("builder", builder)
-
-    _spawn(blueprints["ExitTrigger"].generated_class(), (1000, 0, 150), FACE_PLAYER, "Sortie", "Gameplay")
-    _spawn(unreal.PlayerStart, (-800, 0, 100), 0.0, "PlayerStart", "Gameplay")
-
-    build_config_console(blueprints, mats, builder)
-    build_help_panel(mats)
-
-    _text("Titre", (ROOM_MAX_X - 3, 0, 372), "NEURON FORGE  -  Laboratoire de deep learning", 18, (140, 220, 255))
-    return builder
-
-
-def build_config_console(blueprints, mats, builder):
-    """Panneau de configuration à droite de l'holotable (côté +Y), face au joueur."""
-    board_x, board_center_y, board_center_z = -60.0, 430.0, 140.0
-    _box("Console_Configuration", (board_x, board_center_y, board_center_z), (10, 400, 250), mats["Console"], "Gameplay/Console")
-
-    button_x = board_x - 5 - 4
-    text_x = board_x - 6
-    button_class = blueprints["ConfigButton"].generated_class()
-    actions = unreal.NFConfigAction
-
-    def button(label, y, z, action, layer=0):
-        actor = _spawn(button_class, (button_x, y, z), FACE_PLAYER, label, "Gameplay/Console")
-        actor.set_editor_property("builder", builder)
-        actor.set_editor_property("action", action)
-        actor.set_editor_property("layer_index", layer)
-        return actor
-
-    _text("Console_Titre", (text_x, board_center_y, 250), "CONFIGURATION DU RÉSEAU", 11, folder="Gameplay/Console")
-
-    # Colonne de gauche : couches et taux d'apprentissage
-    global_y = 280.0
-    _text("Console_Reseau", (text_x, global_y, 222), "Couches", 7, folder="Gameplay/Console")
-    button("Btn_AjouterCouche", global_y, 190, actions.ADD_LAYER)
-    button("Btn_RetirerCouche", global_y, 155, actions.REMOVE_LAYER)
-    _text("Console_LR", (text_x, global_y, 125), "Taux d'appr.", 6, folder="Gameplay/Console")
-    button("Btn_LR_Plus", global_y, 98, actions.INCREASE_LEARNING_RATE)
-    button("Btn_LR_Moins", global_y, 63, actions.DECREASE_LEARNING_RATE)
-
-    # Une colonne par couche cachée : + / - / activation
-    for layer in range(3):
-        y = 390.0 + layer * 95.0
-        _text("Console_Couche{}".format(layer + 1), (text_x, y, 222), "Couche {}".format(layer + 1), 7, folder="Gameplay/Console")
-        button("Btn_C{}_PlusNeurone".format(layer + 1), y, 190, actions.ADD_NEURON, layer)
-        button("Btn_C{}_MoinsNeurone".format(layer + 1), y, 155, actions.REMOVE_NEURON, layer)
-        button("Btn_C{}_Activation".format(layer + 1), y, 115, actions.NEXT_ACTIVATION, layer)
-    _text("Console_Legende", (text_x, 485, 62), "+ / -  : neurones      bas : activation", 5.5, (170, 190, 210), folder="Gameplay/Console")
-
-
-def build_help_panel(mats):
-    """Panneau « mode d'emploi » à gauche de l'holotable (côté -Y)."""
-    board_x, board_y = -60.0, -430.0
-    _box("Panneau_Aide", (board_x, board_y, 140), (10, 400, 250), mats["Console"], "Gameplay/Aide")
-    text_x = board_x - 6
-    left = board_y - 185
-    _text("Aide_Titre", (text_x, board_y, 250), "MODE D'EMPLOI", 11, folder="Gameplay/Aide")
-    lines = [
-        ("1. Configurez le réseau sur le panneau de droite", (220, 235, 255)),
-        ("    (visez un bouton et appuyez sur E)", (170, 190, 210)),
-        ("2. Marchez sur le bouton au sol pour l'entraîner", (220, 235, 255)),
-        ("3. Atteignez 100 % de précision : la porte s'ouvre", (220, 235, 255)),
-        ("", (0, 0, 0)),
-        ("Couleur des neurones = activation :", (220, 235, 255)),
-        ("", (0, 0, 0)),  # ligne de la légende colorée ci-dessous
-        ("Poids :  bleu = positif,  rouge = négatif", (220, 235, 255)),
-        ("Épaisseur du lien = force du poids", (170, 190, 210)),
-        ("Luminosité du neurone = son activation", (170, 190, 210)),
-    ]
-    for i, (line, color) in enumerate(lines):
-        if line:
-            _text("Aide_Ligne{}".format(i), (text_x, left, 215 - i * 19), line, 7, color, folder="Gameplay/Aide",
-                  align=unreal.HorizTextAligment.EHTA_LEFT)
-
-    # Légende colorée des activations (mêmes couleurs que NFActivation::GetColor)
-    legend = [("Linear", (51, 153, 255)), ("ReLU", (255, 115, 13)), ("Sigmoid", (26, 255, 77)), ("Tanh", (191, 51, 255))]
-    for i, (name, color) in enumerate(legend):
-        _text("Aide_Couleur_" + name, (text_x - 1, left + 60 + i * 70, 215 - 6 * 19), name, 7.5, color, folder="Gameplay/Aide")
-
-
-
 def _trim(label, center, size, mats, soft=False, folder="Décor/Liserés"):
     return _box(label, center, size, mats["TrimSoft" if soft else "Trim"], folder)
 
 
 def _frame(label, center_x, center_y, center_z, width, height, mats, thickness=3.0):
     """Cadre lumineux autour d'un panneau vertical orienté vers -X."""
-    x = center_x - 6
+    x = center_x - 8
     _trim(label + "_Haut", (x, center_y, center_z + height / 2), (2, width, thickness), mats)
     _trim(label + "_Bas", (x, center_y, center_z - height / 2), (2, width, thickness), mats)
     _trim(label + "_G", (x, center_y - width / 2, center_z), (2, thickness, height), mats)
@@ -318,84 +150,289 @@ def _holo_prop(label, location, mesh_path, material, scale, yaw_rate=0.0, bob=0.
     return prop
 
 
-def build_decor(mats, builder):
-    """Décor sci-fi : liserés, piliers, baies de serveurs, hologrammes et ambiance réactive."""
-    length = ROOM_MAX_X - ROOM_MIN_X
-    center_x = (ROOM_MIN_X + ROOM_MAX_X) / 2.0
+# --- Structure du hall -------------------------------------------------------
 
-    # Liserés au pied et en haut des murs
-    for tag, z, soft in (("Plinthe", 6.0, False), ("Corniche", ROOM_HEIGHT - 8.0, True)):
-        _trim(tag + "_Nord", (center_x, ROOM_HALF_Y - 2, z), (length, 4, 4), mats, soft)
-        _trim(tag + "_Sud", (center_x, -ROOM_HALF_Y + 2, z), (length, 4, 4), mats, soft)
-        _trim(tag + "_Entree", (ROOM_MIN_X + 2, 0, z), (4, 2 * ROOM_HALF_Y, 4), mats, soft)
+def build_hall(mats):
+    wall, floor, ceiling = mats["Wall"], mats["FloorGrid"], mats["Ceiling"]
+    length = HALL_MAX_X - HALL_MIN_X
+    cx = (HALL_MIN_X + HALL_MAX_X) / 2.0
+    width = 2 * HALL_HALF_Y
 
-    # Piliers métalliques avec liseré vertical
+    _box("Sol", (cx, 0, -WALL / 2), (length + 2 * WALL, width + 2 * WALL, WALL), floor)
+    _box("Plafond", (cx, 0, HALL_HEIGHT + WALL / 2), (length + 2 * WALL, width + 2 * WALL, WALL), ceiling)
+    _box("Mur_Entree", (HALL_MIN_X - WALL / 2, 0, HALL_HEIGHT / 2), (WALL, width + 2 * WALL, HALL_HEIGHT), wall)
+    _box("Mur_Nord", (cx, HALL_HALF_Y + WALL / 2, HALL_HEIGHT / 2), (length, WALL, HALL_HEIGHT), wall)
+    _box("Mur_Sud", (cx, -HALL_HALF_Y - WALL / 2, HALL_HEIGHT / 2), (length, WALL, HALL_HEIGHT), wall)
+
+    # Mur du fond percé pour la porte
+    opening = DOOR_WIDTH / 2 + DOOR_FRAME
+    segment = HALL_HALF_Y + WALL - opening
+    wall_x = HALL_MAX_X + WALL / 2
+    _box("Mur_Porte_Gauche", (wall_x, opening + segment / 2, HALL_HEIGHT / 2), (WALL, segment, HALL_HEIGHT), wall)
+    _box("Mur_Porte_Droite", (wall_x, -opening - segment / 2, HALL_HEIGHT / 2), (WALL, segment, HALL_HEIGHT), wall)
+    lintel = HALL_HEIGHT - (DOOR_HEIGHT + DOOR_FRAME)
+    _box("Mur_Porte_Linteau", (wall_x, 0, HALL_HEIGHT - lintel / 2), (WALL, 2 * opening, lintel), wall)
+
+    # Couloir de sortie
+    start = HALL_MAX_X + WALL
+    corridor_len = CORRIDOR_END_X - start
+    corridor_x = start + corridor_len / 2
+    cw = 2 * CORRIDOR_HALF_Y
+    _box("Couloir_Sol", (corridor_x, 0, -WALL / 2), (corridor_len, cw + 2 * WALL, WALL), floor, "Couloir")
+    _box("Couloir_Plafond", (corridor_x, 0, CORRIDOR_HEIGHT + WALL / 2), (corridor_len, cw + 2 * WALL, WALL), ceiling, "Couloir")
+    _box("Couloir_Mur_Nord", (corridor_x, CORRIDOR_HALF_Y + WALL / 2, CORRIDOR_HEIGHT / 2), (corridor_len, WALL, CORRIDOR_HEIGHT), wall, "Couloir")
+    _box("Couloir_Mur_Sud", (corridor_x, -CORRIDOR_HALF_Y - WALL / 2, CORRIDOR_HEIGHT / 2), (corridor_len, WALL, CORRIDOR_HEIGHT), wall, "Couloir")
+    _box("Couloir_Fond", (CORRIDOR_END_X + WALL / 2, 0, CORRIDOR_HEIGHT / 2), (WALL, cw + 2 * WALL, CORRIDOR_HEIGHT), wall, "Couloir")
+
+    # Bandeaux lumineux au plafond
+    for i, x in enumerate((-1700, -850, 0, 850, 1700)):
+        for j, y in enumerate((-900, 0, 900)):
+            _box("Bandeau_{}_{}".format(i, j), (x, y, HALL_HEIGHT - 4), (500, 30, 8), mats["Light"], "Lumières")
+
+
+def build_architecture(mats):
+    """Piliers, passerelles, liserés et baies de serveurs."""
+    length = HALL_MAX_X - HALL_MIN_X
+    cx = (HALL_MIN_X + HALL_MAX_X) / 2.0
+
+    for tag, z, soft in (("Plinthe", 8.0, False), ("Corniche", HALL_HEIGHT - 12.0, True)):
+        _trim(tag + "_Nord", (cx, HALL_HALF_Y - 3, z), (length, 5, 5), mats, soft)
+        _trim(tag + "_Sud", (cx, -HALL_HALF_Y + 3, z), (length, 5, 5), mats, soft)
+        _trim(tag + "_Entree", (HALL_MIN_X + 3, 0, z), (5, 2 * HALL_HALF_Y, 5), mats, soft)
+
     for side, sign in (("Nord", 1), ("Sud", -1)):
-        for i, x in enumerate((-760, -360, 240)):
-            y = sign * (ROOM_HALF_Y - 20)
-            _box("Pilier_{}_{}".format(side, i), (x, y, ROOM_HEIGHT / 2), (50, 40, ROOM_HEIGHT), mats["Pillar"], "Décor/Piliers")
-            _trim("Pilier_{}_{}_Lumiere".format(side, i), (x, y - sign * 21, ROOM_HEIGHT / 2), (6, 2, ROOM_HEIGHT - 60), mats)
+        # Passerelle en hauteur avec garde-corps lumineux
+        y_catwalk = sign * (HALL_HALF_Y - CATWALK_DEPTH / 2)
+        _box("Passerelle_" + side, (cx, y_catwalk, CATWALK_Z), (length, CATWALK_DEPTH, 20), mats["Pillar"], "Décor/Passerelles")
+        edge = sign * (HALL_HALF_Y - CATWALK_DEPTH)
+        _trim("Passerelle_{}_Bord".format(side), (cx, edge, CATWALK_Z - 12), (length, 4, 4), mats, folder="Décor/Passerelles")
+        _trim("Passerelle_{}_Rambarde".format(side), (cx, edge, CATWALK_Z + 105), (length, 5, 5), mats, True, "Décor/Passerelles")
+        for k in range(18):
+            x = HALL_MIN_X + 125 + k * 250
+            _box("Passerelle_{}_Poteau{}".format(side, k), (x, edge, CATWALK_Z + 55), (6, 6, 100), mats["Pillar"], "Décor/Passerelles")
 
-    # Baies de serveurs le long des murs latéraux, façades couvertes de LED
-    for side, sign in (("Nord", 1), ("Sud", -1)):
-        for i, x in enumerate((-660, -580, -500, -260, -180)):
-            y = sign * (ROOM_HALF_Y - 45)
-            _box("Baie_{}_{}".format(side, i), (x, y, 110), (72, 80, 220), mats["Rack"], "Décor/Serveurs")
-            _box("Baie_{}_{}_LED".format(side, i), (x, y - sign * 41, 115), (62, 2, 190), mats["ServerLEDs"], "Décor/Serveurs")
-            _trim("Baie_{}_{}_Haut".format(side, i), (x, y - sign * 41, 216), (72, 3, 3), mats, True, "Décor/Serveurs")
+        # Piliers porteurs avec liseré vertical
+        for i, x in enumerate((-1875, -1125, -375, 375, 1125, 1875)):
+            y = sign * (HALL_HALF_Y - 35)
+            _box("Pilier_{}_{}".format(side, i), (x, y, HALL_HEIGHT / 2), (70, 70, HALL_HEIGHT), mats["Pillar"], "Décor/Piliers")
+            _trim("Pilier_{}_{}_Lumiere".format(side, i), (x, y - sign * 36, HALL_HEIGHT / 2), (8, 2, HALL_HEIGHT - 80), mats)
 
-    # Encadrement lumineux de la porte (côté labo)
-    door_x = ROOM_MAX_X - 1
-    half = DOOR_WIDTH / 2 + DOOR_FRAME + 8
+        # Baies de serveurs sous les passerelles
+        for g, start in enumerate((-1750, -950, 600, 1350)):
+            for i in range(5):
+                x = start + i * 85
+                y = sign * (HALL_HALF_Y - 60)
+                _box("Baie_{}_{}_{}".format(side, g, i), (x, y, 120), (76, 90, 240), mats["Rack"], "Décor/Serveurs")
+                _box("Baie_{}_{}_{}_LED".format(side, g, i), (x, y - sign * 46, 125), (66, 2, 210), mats["ServerLEDs"], "Décor/Serveurs")
+                _trim("Baie_{}_{}_{}_Haut".format(side, g, i), (x, y - sign * 46, 236), (76, 3, 3), mats, True, "Décor/Serveurs")
+
+    # Encadrement lumineux de la porte
+    door_x = HALL_MAX_X - 1
+    half = DOOR_WIDTH / 2 + DOOR_FRAME + 10
     height = DOOR_HEIGHT + DOOR_FRAME
-    _trim("Porte_Lisere_G", (door_x, half, height / 2), (2, 5, height), mats, folder="Décor/Porte")
-    _trim("Porte_Lisere_D", (door_x, -half, height / 2), (2, 5, height), mats, folder="Décor/Porte")
-    _trim("Porte_Lisere_Haut", (door_x, 0, height + 6), (2, 2 * half, 5), mats, folder="Décor/Porte")
+    _trim("Porte_Lisere_G", (door_x, half, height / 2), (2, 6, height), mats, folder="Décor/Porte")
+    _trim("Porte_Lisere_D", (door_x, -half, height / 2), (2, 6, height), mats, folder="Décor/Porte")
+    _trim("Porte_Lisere_Haut", (door_x, 0, height + 8), (2, 2 * half, 6), mats, folder="Décor/Porte")
 
-    # Cadres lumineux des deux panneaux (console et mode d'emploi)
-    _frame("Cadre_Console", -60, 430, 140, 400, 250, mats)
-    _frame("Cadre_Aide", -60, -430, 140, 400, 250, mats)
 
-    # Anneau lumineux autour du bouton au sol
+def build_lighting():
+    for i, x in enumerate((-1700, -850, 0, 850, 1700)):
+        for j, y in enumerate((-900, 900)):
+            _point_light("Lumiere_{}_{}".format(i, j), (x, y, HALL_HEIGHT - 60), 2600.0, 1700.0, shadows=(i % 2 == 0))
+    _point_light("Lumiere_Couloir", (2550, 0, CORRIDOR_HEIGHT - 40), 1800.0, 800.0, color=(0.75, 1.0, 0.8))
+
+    _spot_light("Spot_Forge", (FORGE_X - 150, 0, HALL_HEIGHT - 10), -80.0, 4000.0, 1500.0, 30.0, 48.0, (0.85, 0.95, 1.0))
+    _spot_light("Spot_Hologramme", (HOLO_X, 0, HALL_HEIGHT - 10), -90.0, 5000.0, 1500.0, 25.0, 40.0, (0.6, 0.85, 1.0), mood=True)
+    _spot_light("Spot_Atelier", (-850, -1000, HALL_HEIGHT - 10), -90.0, 3500.0, 1400.0, 32.0, 50.0, (1.0, 0.95, 0.85))
+    _spot_light("Spot_Levier", (-150, 900, HALL_HEIGHT - 10), -80.0, 1500.0, 1300.0, 15.0, 28.0, (1.0, 0.85, 0.6))
+    _spot_light("Spot_Porte", (1800, 0, HALL_HEIGHT - 300), -25.0, 2000.0, 1200.0, 18.0, 35.0, (0.8, 0.9, 1.0), mood=True)
+
+    sky = _spawn(unreal.SkyLight, (0, 0, 500), label="SkyLight", folder="Lumières")
+    sky.light_component.set_intensity(0.15)
+
+    fog = _spawn(unreal.ExponentialHeightFog, (0, 0, 0), label="Brume", folder="Lumières")
+    fog_component = fog.get_editor_property("component")
+    fog_component.set_editor_property("fog_density", 0.01)
+    fog_component.set_editor_property("fog_height_falloff", 0.3)
+    fog_component.set_editor_property("fog_inscattering_luminance", unreal.LinearColor(0.005, 0.01, 0.02, 1.0))
+    fog_component.set_editor_property("enable_volumetric_fog", True)
+    fog_component.set_editor_property("volumetric_fog_extinction_scale", 0.6)
+
+    ppv = _spawn(unreal.PostProcessVolume, (0, 0, 300), label="PostProcess", folder="Lumières")
+    ppv.set_editor_property("unbound", True)
+    settings = ppv.get_editor_property("settings")
+    settings.set_editor_property("override_auto_exposure_min_brightness", True)
+    settings.set_editor_property("auto_exposure_min_brightness", 1.1)
+    settings.set_editor_property("override_auto_exposure_max_brightness", True)
+    settings.set_editor_property("auto_exposure_max_brightness", 1.5)
+    settings.set_editor_property("override_bloom_intensity", True)
+    settings.set_editor_property("bloom_intensity", 1.3)
+    settings.set_editor_property("override_vignette_intensity", True)
+    settings.set_editor_property("vignette_intensity", 0.5)
+    ppv.set_editor_property("settings", settings)
+
+
+# --- Gameplay ----------------------------------------------------------------
+
+def build_gameplay(blueprints, mats, sounds):
+    """Hologramme, Forge, levier, bouton au sol, écran, porte, sortie. Renvoie l'holotable."""
+    builder = _spawn(blueprints["NetworkBuilder"].generated_class(), (HOLO_X, 0, 0), FACE_PLAYER, "Hologramme", "Gameplay")
+    builder.set_actor_scale3d(_vec(HOLO_SCALE, HOLO_SCALE, HOLO_SCALE))
+
+    forge = _spawn(unreal.NFForge, (FORGE_X, 0, 0), FACE_PLAYER, "Forge", "Gameplay")
+    forge.set_editor_property("builder", builder)
+    forge.set_editor_property("platform_material", mats["Platform"])
+    forge.set_editor_property("rail_material", mats["TrimSoft"])
+    forge.set_editor_property("pylon_material", mats["Pillar"])
+    _text("Forge_Titre", (FORGE_X - 10, 0, 340), "LA FORGE", 34, (140, 220, 255), folder="Gameplay")
+    _text("Forge_SousTitre", (FORGE_X - 10, 0, 300), "Insérez les modules de couche dans les fentes", 12, (170, 195, 220), folder="Gameplay")
+
+    lever = _spawn(unreal.NFLever, (FORGE_X, 900, 50), FACE_PLAYER, "Levier", "Gameplay")
+    lever.set_editor_property("builder", builder)
+    lever.set_editor_property("body_material", mats["Pillar"])
+    lever.set_editor_property("handle_material", mats["Module"])
+    if "S_NF_Click" in sounds:
+        lever.set_editor_property("pull_sound", sounds["S_NF_Click"])
+
+    floor_button = _spawn(blueprints["FloorButton"].generated_class(), (FORGE_X - 450, 0, 0), FACE_PLAYER, "BoutonSol", "Gameplay")
+    floor_button.set_editor_property("builder", builder)
     for k in range(24):
         angle = 2 * math.pi * k / 24
-        _box("Anneau_Sol_{}".format(k), (-280 + 95 * math.cos(angle), 95 * math.sin(angle), 1.5), (24, 3, 1),
+        _box("Anneau_Sol_{}".format(k), (FORGE_X - 450 + 95 * math.cos(angle), 95 * math.sin(angle), 1.5), (24, 3, 1),
              mats["TrimSoft"], "Décor/Bouton")
 
-    # Hologrammes de l'holotable : socle à ondes, anneau flottant, cubes de données en orbite
-    _holo_prop("Holo_Socle", (0, 0, 81), "/Engine/BasicShapes/Plane.Plane", mats["Holo"], (1.15, 3.1, 1.0))
-    _holo_prop("Holo_Anneau", (0, 0, 300), "/Engine/BasicShapes/Plane.Plane", mats["HoloRing"], (2.6, 2.6, 1.0),
-               yaw_rate=12.0, bob=6.0, builder=builder)
+    display = _spawn(blueprints["StatusDisplay"].generated_class(), (HOLO_X - 200, -1050, 330), FACE_PLAYER, "EcranEtat", "Gameplay")
+    display.set_actor_scale3d(_vec(1.8, 1.8, 1.8))
+    display.set_editor_property("builder", builder)
 
-    orbit = _spawn(unreal.NFAnimatedProp, (0, 0, 185), 0.0, "Holo_Donnees", "Décor/Hologrammes")
+    door = _spawn(blueprints["LabDoor"].generated_class(), (HALL_MAX_X + WALL / 2, 0, 0), FACE_PLAYER, "PorteLabo", "Gameplay")
+    door.set_editor_property("builder", builder)
+
+    _spawn(blueprints["ExitTrigger"].generated_class(), (2550, 0, 150), FACE_PLAYER, "Sortie", "Gameplay")
+    _spawn(unreal.PlayerStart, (HALL_MIN_X + 250, 0, 100), 0.0, "PlayerStart", "Gameplay")
+
+    _text("Titre", (HALL_MAX_X - 3, 0, 495), "NEURON FORGE", 60, (140, 220, 255))
+    _text("Titre_Sous", (HALL_MAX_X - 3, 0, 435), "Laboratoire de deep learning", 20, (170, 200, 230))
+    return builder
+
+
+def _bench(label, x, y, length, mats, title, subtitle):
+    """Établi de l'atelier avec rebords (les pièces ne roulent pas par terre) et enseigne."""
+    _box(label, (x, y, 45), (120, length, 90), mats["Bench"], "Atelier")
+    _trim(label + "_Lisere", (x - 61, y, 88), (2, length, 3), mats, folder="Atelier")
+    rims = {"Avant": (-58, 0, 4, length), "Arriere": (58, 0, 4, length),
+            "G": (0, -length / 2 + 2, 120, 4), "D": (0, length / 2 - 2, 120, 4)}
+    for name, (dx, dy, sx, sy) in rims.items():
+        _box("{}_Rebord{}".format(label, name), (x + dx, y + dy, 98), (sx, sy, 16), mats["Bench"], "Atelier")
+    _text(label + "_Titre", (x - 40, y, 230), title, 20, (140, 220, 255), folder="Atelier")
+    _text(label + "_Detail", (x - 40, y, 200), subtitle, 10, (180, 200, 220), folder="Atelier")
+
+
+def _piece(actor_class, label, location, mats, material_key, piece_type=None, activation=None, mesh=None, scale=None):
+    piece = _spawn(actor_class, location, 0.0, label, "Atelier/Pièces")
+    if piece_type is not None:
+        piece.set_editor_property("piece_type", piece_type)
+    if activation is not None:
+        piece.set_editor_property("activation", activation)
+    piece.set_editor_property("body_material", mats[material_key])
+    component = piece.get_editor_property("mesh")
+    if mesh:
+        component.set_static_mesh(eal.load_asset(mesh))
+    component.set_material(0, mats[material_key])
+    if scale:
+        piece.set_actor_scale3d(_vec(*scale))
+    return piece
+
+
+def build_workshop(mats):
+    """Atelier : établis garnis de modules de couche, d'orbes-neurones et de cristaux d'activation."""
+    y = -1050.0
+    _bench("Etabli_Modules", -1400, y, 420, mats, "MODULES DE COUCHE", "1 module = 1 couche cachée")
+    _bench("Etabli_Orbes", -850, y, 520, mats, "ORBES-NEURONES", "1 orbe posée autour d'un module = 1 neurone")
+    _bench("Etabli_Cristaux", -300, y, 420, mats, "CRISTAUX D'ACTIVATION", "Plantez-en un sur un module")
+
+    for i in range(4):
+        _piece(unreal.NFLayerModule, "Module_{}".format(i + 1), (-1400, y - 150 + i * 100, 125), mats, "Module")
+
+    orb = unreal.NFPieceType.NEURON_ORB
+    for i in range(20):
+        row, col = divmod(i, 10)
+        _piece(unreal.NFPiece, "Orbe_{:02d}".format(i + 1), (-850 - 20 + row * 40, y - 225 + col * 50, 110), mats, "Orb",
+               piece_type=orb, mesh=SPHERE, scale=(0.16, 0.16, 0.16))
+
+    crystal = unreal.NFPieceType.ACTIVATION_CRYSTAL
+    activations = [("Linear", unreal.NFActivation.LINEAR, (51, 153, 255)), ("ReLU", unreal.NFActivation.RE_LU, (255, 115, 13)),
+                   ("Sigmoid", unreal.NFActivation.SIGMOID, (26, 255, 77)), ("Tanh", unreal.NFActivation.TANH, (191, 51, 255))]
+    for i, (name, activation, color) in enumerate(activations):
+        for k in range(2):
+            _piece(unreal.NFPiece, "Cristal_{}_{}".format(name, k + 1), (-300 - 20 + k * 40, y - 150 + i * 100, 120), mats,
+                   "Crystal", piece_type=crystal, activation=activation, mesh=CONE, scale=(0.14, 0.14, 0.28))
+        _text("Cristal_{}_Etiquette".format(name), (-362, y - 150 + i * 100, 140), name, 9, color, folder="Atelier")
+
+
+def build_help_panel(mats):
+    """Panneau « mode d'emploi » près de l'entrée."""
+    x, y, z = -1650.0, 700.0, 200.0
+    _box("Panneau_Aide", (x, y, z), (12, 520, 300), mats["Console"], "Gameplay/Aide")
+    _frame("Cadre_Aide", x, y, z, 520, 300, mats)
+    text_x = x - 8
+    left = y - 240
+    _text("Aide_Titre", (text_x, y, z + 125), "MODE D'EMPLOI", 16, folder="Gameplay/Aide")
+    lines = [
+        ("1. À l'atelier, visez une pièce et appuyez sur E pour la prendre", (220, 235, 255)),
+        ("2. Insérez un module de couche dans une fente de la Forge", (220, 235, 255)),
+        ("3. Posez des orbes autour du module : 1 orbe = 1 neurone", (220, 235, 255)),
+        ("4. Plantez un cristal sur le module pour choisir l'activation", (220, 235, 255)),
+        ("5. Tirez le levier pour régler le taux d'apprentissage", (220, 235, 255)),
+        ("6. Marchez sur le bouton au sol : l'entraînement démarre", (220, 235, 255)),
+        ("", (0, 0, 0)),
+        ("Sans cristal, un module est Linear.", (170, 190, 210)),
+        ("Pour retirer une pièce, visez-la et appuyez sur E.", (170, 190, 210)),
+        ("H : revoir le briefing", (170, 190, 210)),
+    ]
+    for i, (line, color) in enumerate(lines):
+        if line:
+            _text("Aide_Ligne{}".format(i), (text_x, left, z + 85 - i * 24), line, 9, color, folder="Gameplay/Aide",
+                  align=unreal.HorizTextAligment.EHTA_LEFT)
+
+
+def build_holograms(mats, builder):
+    s = HOLO_SCALE
+    _holo_prop("Holo_Socle", (HOLO_X, 0, 81 * s), PLANE, mats["Holo"], (1.15 * s, 3.1 * s, 1.0))
+    _holo_prop("Holo_Anneau", (HOLO_X, 0, 935), PLANE, mats["HoloRing"], (9.5, 9.5, 1.0), yaw_rate=10.0, bob=12.0, builder=builder)
+    _holo_prop("Holo_Anneau_Forge", (FORGE_X, 0, 900), PLANE, mats["HoloRing"], (11.0, 11.0, 1.0), yaw_rate=-6.0, bob=8.0, builder=builder)
+
+    orbit = _spawn(unreal.NFAnimatedProp, (HOLO_X, 0, 180 * s), 0.0, "Holo_Donnees", "Décor/Hologrammes")
     orbit.set_editor_property("rotation_rate", unreal.Rotator(roll=0, pitch=0, yaw=0))
-    orbit.set_editor_property("orbit_count", 18)
-    orbit.set_editor_property("orbit_radius", 175.0)
-    orbit.set_editor_property("orbit_speed", 14.0)
-    orbit.set_editor_property("orbit_wave", 18.0)
-    orbit.set_editor_property("orbit_item_size", 5.0)
+    orbit.set_editor_property("orbit_count", 30)
+    orbit.set_editor_property("orbit_radius", 680.0)
+    orbit.set_editor_property("orbit_speed", 10.0)
+    orbit.set_editor_property("orbit_wave", 60.0)
+    orbit.set_editor_property("orbit_item_size", 13.0)
     orbit.set_editor_property("builder", builder)
     orbit_mesh = orbit.get_editor_property("orbit")
     orbit_mesh.set_static_mesh(eal.load_asset(CUBE))
     orbit_mesh.set_material(0, mats["Trim"])
 
-    # Chef d'orchestre de l'ambiance (couleurs, lumières, hologrammes)
-    ambience = _spawn(unreal.NFLabAmbience, (0, 0, 350), 0.0, "Ambiance", "Gameplay")
+    ambience = _spawn(unreal.NFLabAmbience, (0, 0, 600), 0.0, "Ambiance", "Gameplay")
     ambience.set_editor_property("builder", builder)
     ambience.set_editor_property("mood_collection", mats["MoodCollection"])
 
 
-def build_level(blueprints, mats):
-    """Recrée L_Lab, construit tout le niveau et l'enregistre."""
+def build_level(blueprints, mats, sounds=None):
+    """Recrée L_Lab, construit tout le hall et l'enregistre."""
     if eal.does_asset_exist(LEVEL_PATH):
         eal.delete_asset(LEVEL_PATH)
     if not les.new_level(LEVEL_PATH):
         raise RuntimeError("Création du niveau impossible : " + LEVEL_PATH)
 
-    build_room(mats)
+    build_hall(mats)
+    build_architecture(mats)
     build_lighting()
-    builder = build_lab(blueprints, mats)
-    build_decor(mats, builder)
+    builder = build_gameplay(blueprints, mats, sounds or {})
+    build_workshop(mats)
+    build_help_panel(mats)
+    build_holograms(mats, builder)
 
     world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
     world.get_world_settings().set_editor_property("default_game_mode", blueprints["GameMode"].generated_class())
