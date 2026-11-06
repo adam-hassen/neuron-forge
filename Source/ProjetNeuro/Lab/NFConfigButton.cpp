@@ -96,7 +96,12 @@ void ANFConfigButton::RefreshButton()
 {
 	if (Label)
 	{
-		Label->SetText(FText::FromString(Builder ? Builder->GetActionLabel(Action, LayerIndex) : UEnum::GetDisplayValueAsText(Action).ToString()));
+		const FString Text = Builder ? Builder->GetActionLabel(Action, LayerIndex) : UEnum::GetDisplayValueAsText(Action).ToString();
+		Label->SetText(FText::FromString(Text));
+
+		// Le texte doit tenir sur la face du bouton (25 cm) : taille réduite pour les libellés longs
+		const float FitSize = 32.f / FMath::Max(1, Text.Len());
+		Label->SetWorldSize(FMath::Clamp(FitSize, 3.5f, MaxLabelSize));
 	}
 	RefreshVisuals();
 }

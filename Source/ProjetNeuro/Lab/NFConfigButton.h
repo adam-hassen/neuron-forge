@@ -47,6 +47,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Config")
 	float PressDepth = 2.5f;
 
+	/** Taille maximale du libellé ; réduite automatiquement pour les libellés longs. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Config", meta = (ClampMin = "1"))
+	float MaxLabelSize = 7.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Config")
 	FColor EnabledLabelColor = FColor(220, 245, 255);
 

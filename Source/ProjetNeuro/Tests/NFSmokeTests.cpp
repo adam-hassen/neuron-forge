@@ -23,6 +23,9 @@
 #include "Lab/NFNetworkBuilder.h"
 #include "Player/NFCharacter.h"
 #include "Player/NFHUD.h"
+#include "Misc/Paths.h"
+#include "Tests/AutomationCommon.h"
+#include "UnrealClient.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -190,4 +193,60 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+// ---------------------------------------------------------------------------
+// Captures d'écran de contrôle visuel (nécessite un vrai rendu : -RenderOffscreen, pas -nullrhi).
+// Images écrites dans Saved/Screenshots/NF_<vue>.png
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFLabScreenshotsTest, "NeuronForge.Smoke.Screenshots",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
+
+bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
+{
+	UWorld* World = NFSmoke::FindGameWorld();
+	ANFCharacter* Character = World ? Cast<ANFCharacter>(UGameplayStatics::GetPlayerPawn(World, 0)) : nullptr;
+	if (!TestNotNull(TEXT("Joueur"), Character))
+	{
+		return false;
+	}
+
+	struct FView
+	{
+		const TCHAR* Name;
+		FVector Location;
+		FVector LookAt;
+	};
+	const TArray<FView> Views = {
+		{ TEXT("Entree"), FVector(-800.f, 0.f, 100.f), FVector(300.f, 0.f, 170.f) },
+		{ TEXT("Holotable"), FVector(-420.f, 0.f, 100.f), FVector(0.f, 0.f, 190.f) },
+		{ TEXT("Console"), FVector(-330.f, 430.f, 100.f), FVector(-60.f, 430.f, 140.f) },
+		{ TEXT("Aide"), FVector(-330.f, -430.f, 100.f), FVector(-60.f, -430.f, 140.f) },
+		{ TEXT("Porte"), FVector(-100.f, -150.f, 100.f), FVector(610.f, 0.f, 200.f) },
+	};
+
+	for (const FView& View : Views)
+	{
+		const FString Name = View.Name;
+		const FVector Location = View.Location;
+		const FVector LookAt = View.LookAt;
+
+		// Placement du joueur, puis attente que l'éclairage (Lumen) se stabilise
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Character, Location, LookAt]()
+		{
+			NFSmoke::Teleport(Character, Location);
+			const FVector Eye = Character->GetFirstPersonCamera()->GetComponentLocation();
+			Character->GetController()->SetControlRotation((LookAt - Eye).Rotation());
+			return true;
+		}));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.0f));
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Name]()
+		{
+			const FString File = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots") / (TEXT("NF_") + Name + TEXT(".png")));
+			FScreenshotRequest::RequestScreenshot(File, /*bShowUI*/ true, /*bAddFilenameSuffix*/ false);
+			return true;
+		}));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+	}
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS
+

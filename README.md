@@ -4,6 +4,8 @@
 
 Projet réalisé pour la matière **Réalité étendue et interactions multimodales** à l'**ENSIM** (Le Mans Université).
 
+![Le laboratoire Neuron Forge après la réussite du modèle](Docs/Images/NF_Holotable.png)
+
 ---
 
 ## Sommaire
@@ -55,6 +57,10 @@ Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui 
 4. **Suivi en direct** : l'écran d'état affiche l'architecture, l'epoch courante, la perte, la précision et les prédictions sur les 4 exemples XOR.
 5. **Validation** : si la précision cible est atteinte, un **son de validation** retentit et la **porte du labo s'ouvre** avec une animation. Sinon, le joueur modifie son architecture et réessaie.
 6. **Sortie** : franchir la porte déclenche la zone de fin de niveau.
+
+| Vue d'ensemble du labo | Console de configuration | Porte ouverte après validation |
+|:---:|:---:|:---:|
+| ![Entrée du labo](Docs/Images/NF_Entree.png) | ![Console](Docs/Images/NF_Console.png) | ![Porte](Docs/Images/NF_Porte.png) |
 
 **Contrôles (PC)** : `ZQSD`/`WASD` pour se déplacer, la souris pour regarder, `Espace` pour sauter, `E` ou clic gauche pour interagir avec l'objet visé. À la manette : stick gauche/droit, `A` pour sauter, `X` pour interagir.
 
@@ -130,6 +136,7 @@ ProjetNeuro/
 │       ├── Blueprints/      Blueprints enfants des classes C++ (BP_NF_*)
 │       ├── Maps/            Niveau du labo L_Lab
 │       └── Materials/       Materials et instances (M_NF_*, MI_NF_*)
+├── Docs/Images/             Captures d'écran du README
 ├── RawAssets/Audio/         Sons WAV générés (source de l'import)
 └── Config/                  Configuration du projet (carte et GameMode par défaut : L_Lab, BP_NF_GameMode)
 ```
@@ -231,6 +238,8 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 ```bat
 "<UE_5.6>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<chemin>\ProjetNeuro.uproject" -game -nullrhi -nosound -ExecCmds="Automation RunTests NeuronForge.Smoke; Quit" -TestExit="Automation Test Queue Empty"
 ```
+
+**Captures de contrôle visuel** (`Smoke.Screenshots`) : il prend 5 vues du labo (entrée, holotable, console, mode d'emploi, porte) dans `Saved/Screenshots/NF_*.png`. Il demande un vrai rendu : remplacer `-nullrhi` par `-RenderOffscreen -ResX=1280 -ResY=720` dans la commande ci-dessus.
 
 **Mesures de calibrage** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
 

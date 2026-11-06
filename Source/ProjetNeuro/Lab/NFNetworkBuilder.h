@@ -142,7 +142,7 @@ public:
 
 	/** Centre du réseau affiché, relatif à l'acteur. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Visualization")
-	FVector VisualOrigin = FVector(0.f, 0.f, 150.f);
+	FVector VisualOrigin = FVector(0.f, 0.f, 180.f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Visualization")
 	float LayerSpacing = 55.f;

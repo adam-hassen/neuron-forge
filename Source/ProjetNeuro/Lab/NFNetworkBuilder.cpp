@@ -19,6 +19,10 @@ namespace
 	/** Données par instance lues par le material : R, G, B, intensité. */
 	constexpr int32 NumCustomData = 4;
 
+	/** Dimensions de la table de l'holotable, en cm. */
+	constexpr float TableDepth = 120.f;
+	constexpr float TableHeight = 80.f;
+
 	FString FormatLearningRate(float Value)
 	{
 		return Value < 0.1f ? FString::Printf(TEXT("%.2f"), Value) : FString::Printf(TEXT("%.1f"), Value);
@@ -34,8 +38,9 @@ ANFNetworkBuilder::ANFNetworkBuilder()
 
 	TableMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TableMesh"));
 	TableMesh->SetupAttachment(SceneRoot);
-	TableMesh->SetRelativeLocation(FVector(0.f, 0.f, 45.f));
-	TableMesh->SetRelativeScale3D(FVector(1.2f, 3.2f, 0.9f));
+	// Table de 120 x 320 cm, 80 cm de haut (le cube de base fait 100 cm, pivot au centre)
+	TableMesh->SetRelativeLocation(FVector(0.f, 0.f, TableHeight * 0.5f));
+	TableMesh->SetRelativeScale3D(FVector(TableDepth, 320.f, TableHeight) / 100.f);
 
 	NeuronInstances = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("NeuronInstances"));
 	NeuronInstances->SetupAttachment(SceneRoot);
@@ -62,10 +67,12 @@ ANFNetworkBuilder::ANFNetworkBuilder()
 		ColumnLabels.Add(Label);
 	}
 
+	// Exemple courant affiché sur la face avant de la table
 	SampleLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("SampleLabel"));
 	SampleLabel->SetupAttachment(SceneRoot);
+	SampleLabel->SetRelativeLocation(FVector(TableDepth * 0.5f + 1.f, 0.f, TableHeight * 0.6f));
 	SampleLabel->SetHorizontalAlignment(EHTA_Center);
-	SampleLabel->SetVerticalAlignment(EVRTA_TextBottom);
+	SampleLabel->SetVerticalAlignment(EVRTA_TextCenter);
 	SampleLabel->SetWorldSize(7.f);
 	SampleLabel->SetTextRenderColor(FColor(255, 240, 200));
 
@@ -599,8 +606,6 @@ void ANFNetworkBuilder::UpdateLabels()
 		const float Output = NetLayers.Num() > 0 ? NetLayers.Last().A[0] : 0.f;
 		SampleLabel->SetText(FText::FromString(FString::Printf(TEXT("Exemple : %.0f XOR %.0f = %.0f    sortie du réseau : %.2f"),
 			Input[0], Input[1], Target, Output)));
-		SampleLabel->SetRelativeLocation(FVector(VisualOrigin.X + 8.f, 0.f,
-			VisualOrigin.Z + (MaxNeuronsPerLayer * 0.5f) * NeuronSpacing + 6.f));
 	}
 }
 

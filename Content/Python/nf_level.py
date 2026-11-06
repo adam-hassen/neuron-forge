@@ -155,7 +155,7 @@ def build_lab(blueprints, mats):
     """Place les acteurs de gameplay et les relie à l'holotable."""
     builder = _spawn(blueprints["NetworkBuilder"].generated_class(), (0, 0, 0), FACE_PLAYER, "Holotable", "Gameplay")
 
-    display = _spawn(blueprints["StatusDisplay"].generated_class(), (330, 0, 300), FACE_PLAYER, "EcranEtat", "Gameplay")
+    display = _spawn(blueprints["StatusDisplay"].generated_class(), (ROOM_MAX_X - 8, 330, 215), FACE_PLAYER, "EcranEtat", "Gameplay")
     display.set_editor_property("builder", builder)
 
     floor_button = _spawn(blueprints["FloorButton"].generated_class(), (-280, 0, 0), FACE_PLAYER, "BoutonSol", "Gameplay")
@@ -164,7 +164,7 @@ def build_lab(blueprints, mats):
     door = _spawn(blueprints["LabDoor"].generated_class(), (ROOM_MAX_X + WALL / 2, 0, 0), FACE_PLAYER, "PorteLabo", "Gameplay")
     door.set_editor_property("builder", builder)
 
-    _spawn(blueprints["ExitTrigger"].generated_class(), (1000, 0, 150), 0.0, "Sortie", "Gameplay")
+    _spawn(blueprints["ExitTrigger"].generated_class(), (1000, 0, 150), FACE_PLAYER, "Sortie", "Gameplay")
     _spawn(unreal.PlayerStart, (-800, 0, 100), 0.0, "PlayerStart", "Gameplay")
 
     build_config_console(blueprints, mats, builder)
@@ -225,7 +225,8 @@ def build_help_panel(mats):
         ("2. Marchez sur le bouton au sol pour l'entraîner", (220, 235, 255)),
         ("3. Atteignez 100 % de précision : la porte s'ouvre", (220, 235, 255)),
         ("", (0, 0, 0)),
-        ("Neurones :  Linear  ReLU  Sigmoid  Tanh", (220, 235, 255)),
+        ("Couleur des neurones = activation :", (220, 235, 255)),
+        ("", (0, 0, 0)),  # ligne de la légende colorée ci-dessous
         ("Poids :  bleu = positif,  rouge = négatif", (220, 235, 255)),
         ("Épaisseur du lien = force du poids", (170, 190, 210)),
         ("Luminosité du neurone = son activation", (170, 190, 210)),
@@ -238,7 +239,7 @@ def build_help_panel(mats):
     # Légende colorée des activations (mêmes couleurs que NFActivation::GetColor)
     legend = [("Linear", (51, 153, 255)), ("ReLU", (255, 115, 13)), ("Sigmoid", (26, 255, 77)), ("Tanh", (191, 51, 255))]
     for i, (name, color) in enumerate(legend):
-        _text("Aide_Couleur_" + name, (text_x - 1, left + 125 + i * 55, 215 - 5 * 19), name, 7, color, folder="Gameplay/Aide")
+        _text("Aide_Couleur_" + name, (text_x - 1, left + 60 + i * 70, 215 - 6 * 19), name, 7.5, color, folder="Gameplay/Aide")
 
 
 def build_level(blueprints, mats):
