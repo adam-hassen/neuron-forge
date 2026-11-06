@@ -63,6 +63,10 @@ Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui 
 |:---:|:---:|:---:|
 | ![Briefing](Docs/Images/NF_Intro.png) | ![Mission](Docs/Images/NF_IntroMission.png) | ![Fin](Docs/Images/NF_Fin.png) |
 
+| Le labo au repos | Pendant l'entraînement | Baies de serveurs |
+|:---:|:---:|:---:|
+| ![Labo](Docs/Images/NF_Entree.png) | ![Entraînement](Docs/Images/NF_Entrainement.png) | ![Serveurs](Docs/Images/NF_Serveurs.png) |
+
 | Vue d'ensemble du labo | Console de configuration | Porte ouverte après validation |
 |:---:|:---:|:---:|
 | ![Entrée du labo](Docs/Images/NF_Entree.png) | ![Console](Docs/Images/NF_Console.png) | ![Porte](Docs/Images/NF_Porte.png) |
@@ -118,6 +122,10 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible,
 | Labo | `ANFStatusDisplay` | Écran d'état en Text Render : mission, architecture, epoch, perte, précision, prédictions sur les 4 cas, conseil. |
 | Labo | `ANFLabDoor` | Porte coulissante animée par une timeline (`FTimeline` + courbe ease-in-out) ; s'ouvre à la réussite avec le son de validation ; voyant rouge → vert. |
 | Labo | `ANFExitTrigger` | Zone de fin de niveau (Box Collision) derrière la porte. |
+| Ambiance | `ANFLabAmbience` | Ambiance réactive : couleur et intensité envoyées à la Material Parameter Collection `MPC_NF_Lab` et aux lumières taguées `NFMood` (cyan au repos, orange pulsé pendant l'entraînement, flash vert à la réussite, alerte rouge à l'échec). |
+| Ambiance | `ANFAnimatedProp` | Décor animé : rotation, flottement, couronne d'objets en orbite, accélère pendant l'entraînement (hologrammes, cubes de données). |
+
+**Décor du labo** : ambiance sombre de laboratoire de nuit, sol miroir quadrillé de lignes lumineuses, liserés néon sur les murs, les piliers, la porte et les panneaux, baies de serveurs couvertes de LED qui clignotent, socle et anneau holographiques animés au-dessus de l'holotable, cubes de données en orbite, brume volumétrique. Des impulsions lumineuses parcourent les poids du réseau, plus vite pendant l'entraînement. Toute la salle change de couleur selon l'état du modèle.
 
 **Parcours pédagogique prévu** : le réseau de départ n'a pas de couche cachée et échoue (« XOR n'est pas linéairement séparable ») ; la couche ajoutée est Linear et échoue aussi (« des couches Linear empilées restent linéaires ») ; en passant à Tanh, ReLU ou Sigmoid, le modèle réussit et la porte s'ouvre.
 
@@ -212,8 +220,8 @@ Le rapport est écrit dans `Saved/nf_build_report.txt`. `nf_validate_content.py`
 |---|---|
 | `nf_build_all.py` | Point d'entrée : sons → materials → Blueprints → niveau `L_Lab`, avec rapport. |
 | `nf_audio.py` | Synthèse des 7 effets sonores en Python pur (WAV dans `RawAssets/Audio/`) : validation (arpège do-mi-sol-do), clic, bouton au sol, lancement, échec, porte, fin de niveau. |
-| `nf_assets.py` | Materials (`M_NF_Instanced` lu par instance, `M_NF_Highlight` avec paramètre `Highlight`, `M_NF_Surface`) et leurs 11 instances ; import des sons ; Blueprints enfants `BP_NF_*` des classes C++ avec materials et sons assignés. |
-| `nf_level.py` | Construction du niveau `L_Lab` : salle 16 × 14 m, couloir de sortie, éclairage, post-process, holotable, écran d'état, bouton au sol, console de 13 boutons, panneau « mode d'emploi », porte et zone de sortie, GameMode du niveau. |
+| `nf_assets.py` | Materials (`M_NF_Instanced` lu par instance, `M_NF_Highlight` avec paramètre `Highlight`, `M_NF_Surface`) et leurs instances ; décor animé (`MPC_NF_Lab`, `M_NF_Trim` liserés d'ambiance, `M_NF_FloorGrid` grille lumineuse, `M_NF_ServerLEDs` LED aléatoires, `M_NF_Holo` anneaux holographiques) ; import des sons ; Blueprints enfants `BP_NF_*` avec materials et sons assignés. |
+| `nf_level.py` | Construction du niveau `L_Lab` : salle 16 × 14 m, couloir de sortie, éclairage (lumières d'ambiance, projecteurs, brume volumétrique, post-process), holotable, écran d'état, bouton au sol, console de 13 boutons, panneau « mode d'emploi », porte, zone de sortie, décor (piliers, liserés, baies de serveurs, hologrammes) et acteur d'ambiance. |
 | `nf_validate_content.py` | Contrôle du contenu enregistré : materials et sons des Blueprints, acteurs du niveau et leurs références, GameMode. |
 | `nf_check_env.py` | Vérifie que Python fonctionne, que les classes C++ du jeu sont chargées et que le personnage a bien récupéré les assets du template (rapport dans `Saved/nf_check_env.txt`). |
 | `nf_dump_template.py` | Inventaire des Blueprints du template First Person : composants, assets, réglages et mappings d'entrée (rapport dans `Saved/nf_dump_template.txt`). |
@@ -249,7 +257,7 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 "<UE_5.6>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<chemin>\ProjetNeuro.uproject" -game -nullrhi -nosound -ExecCmds="Automation RunTests NeuronForge.Smoke; Quit" -TestExit="Automation Test Queue Empty"
 ```
 
-**Captures de contrôle visuel** (`Smoke.Screenshots`) : il prend 5 vues du labo (entrée, holotable, console, mode d'emploi, porte) dans `Saved/Screenshots/NF_*.png`. Il demande un vrai rendu : remplacer `-nullrhi` par `-RenderOffscreen -ResX=1280 -ResY=720` dans la commande ci-dessus.
+**Captures de contrôle visuel** (`Smoke.Screenshots`) : il capture les 4 pages du briefing, 6 vues du labo au repos (entrée, holotable, console, mode d'emploi, porte, serveurs), une vue pendant l'entraînement et l'écran de fin dans `Saved/Screenshots/NF_*.png`. Il demande un vrai rendu : remplacer `-nullrhi` par `-RenderOffscreen -ResX=1280 -ResY=720` dans la commande ci-dessus.
 
 **Mesures de calibrage** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
 
@@ -277,7 +285,7 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | 4 | Génération du contenu en Python : materials, son, Blueprints, niveau `L_Lab` | ✅ Terminé |
 | 5 | Test de bout en bout et finitions | ✅ Terminé |
 | 6 | Interface « pro » : briefing animé, objectifs en jeu, écran de fin | ✅ Terminé |
-| 7 | Refonte visuelle du labo : ambiance sci-fi, éclairage réactif, animations | ⏳ En cours |
+| 7 | Refonte visuelle du labo : ambiance sci-fi, éclairage réactif, animations | ✅ Terminé |
 
 ---
 

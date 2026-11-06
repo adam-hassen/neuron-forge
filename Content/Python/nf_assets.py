@@ -179,9 +179,231 @@ def create_materials():
                                             vectors={"BaseColor": (0.1, 0.11, 0.13, 1)}, scalars={"Metallic": 0.7, "Roughness": 0.45}),
         "Light": create_material_instance("MI_NF_LightStrip", surface,
                                           vectors={"BaseColor": (1, 1, 1, 1), "EmissiveColor": (0.85, 0.92, 1.0, 1)},
-                                          scalars={"Metallic": 0.0, "Roughness": 0.5, "EmissiveStrength": 6.0}),
+                                          scalars={"Metallic": 0.0, "Roughness": 0.5, "EmissiveStrength": 2.0}),
     }
 
+
+
+# --- Ambiance et décor animé du labo -------------------------------------------
+
+_mood_collection = None
+
+
+def create_mood_collection():
+    """MPC_NF_Lab : couleur et intensité d'ambiance, pilotées en jeu par ANFLabAmbience."""
+    global _mood_collection
+    mpc, _ = _load_or_create("MPC_NF_Lab", MATERIALS, unreal.MaterialParameterCollection,
+                             unreal.MaterialParameterCollectionFactoryNew())
+    color = unreal.CollectionVectorParameter()
+    color.set_editor_property("parameter_name", "MoodColor")
+    color.set_editor_property("default_value", unreal.LinearColor(0.10, 0.65, 1.0, 1.0))
+    intensity = unreal.CollectionScalarParameter()
+    intensity.set_editor_property("parameter_name", "MoodIntensity")
+    intensity.set_editor_property("default_value", 1.0)
+    mpc.set_editor_property("vector_parameters", [color])
+    mpc.set_editor_property("scalar_parameters", [intensity])
+    eal.save_loaded_asset(mpc, only_if_is_dirty=False)
+    _mood_collection = mpc
+    return mpc
+
+
+def _mood(material, x, y):
+    """Couleur d'ambiance x intensité, lues dans MPC_NF_Lab."""
+    color = _expr(material, unreal.MaterialExpressionCollectionParameter, x, y,
+                  collection=_mood_collection, parameter_name="MoodColor")
+    intensity = _expr(material, unreal.MaterialExpressionCollectionParameter, x, y + 120,
+                      collection=_mood_collection, parameter_name="MoodIntensity")
+    return _binary(material, unreal.MaterialExpressionMultiply, color, intensity, x + 220, y + 40)
+
+
+def _op(material, expression_class, source, x, y, **consts):
+    """Opération à une entrée connectée ; l'autre opérande est une constante (const_a ou const_b)."""
+    node = mel.create_material_expression(material, expression_class, x, y)
+    for key, value in consts.items():
+        node.set_editor_property(key, value)
+    pin = "B" if "const_a" in consts else ("A" if "const_b" in consts else "")
+    mel.connect_material_expressions(source, "", node, pin)
+    return node
+
+
+def _mask(material, source, x, y, r=False, g=False, b=False):
+    return _op(material, unreal.MaterialExpressionComponentMask, source, x, y, r=r, g=g, b=b, a=False)
+
+
+def create_trim_material():
+    """M_NF_Trim : liserés lumineux dont la couleur suit l'ambiance du labo."""
+    material, _ = _load_or_create("M_NF_Trim", MATERIALS, unreal.Material, unreal.MaterialFactoryNew())
+    _reset_material(material)
+    material.set_editor_property("used_with_instanced_static_meshes", True)
+    mood = _mood(material, -900, 0)
+    brightness = _scalar_param(material, "Brightness", 6.0, -650, 250)
+    emissive = _binary(material, unreal.MaterialExpressionMultiply, mood, brightness, -350, 100)
+    mel.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    black = _expr(material, unreal.MaterialExpressionConstant, -350, -100, r=0.01)
+    mel.connect_material_property(black, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.recompile_material(material)
+    return material
+
+
+def create_floor_grid_material():
+    """M_NF_FloorGrid : sol sombre et brillant, quadrillé de lignes lumineuses aux couleurs de l'ambiance."""
+    material, _ = _load_or_create("M_NF_FloorGrid", MATERIALS, unreal.Material, unreal.MaterialFactoryNew())
+    _reset_material(material)
+
+    world = _expr(material, unreal.MaterialExpressionWorldPosition, -1600, 0)
+    xy = _mask(material, world, -1400, 0, r=True, g=True)
+    cell = _scalar_param(material, "CellSize", 100.0, -1400, 150)
+    scaled = _binary(material, unreal.MaterialExpressionDivide, xy, cell, -1200, 50)
+    frac = _op(material, unreal.MaterialExpressionFrac, scaled, -1000, 50)
+    centered = _op(material, unreal.MaterialExpressionSubtract, frac, -850, 50, const_b=0.5)
+    dist = _op(material, unreal.MaterialExpressionAbs, centered, -700, 50)
+    dx = _mask(material, dist, -550, 0, r=True)
+    dy = _mask(material, dist, -550, 120, g=True)
+    edge = _binary(material, unreal.MaterialExpressionMax, dx, dy, -400, 50)
+    near = _op(material, unreal.MaterialExpressionSubtract, edge, -250, 50, const_b=0.488)
+    sharp = _op(material, unreal.MaterialExpressionMultiply, near, -100, 50, const_b=80.0)
+    line = _op(material, unreal.MaterialExpressionSaturate, sharp, 50, 50)
+
+    mood = _mood(material, -400, 350)
+    brightness = _scalar_param(material, "LineBrightness", 1.6, -100, 500)
+    glow = _binary(material, unreal.MaterialExpressionMultiply, mood, brightness, 100, 400)
+    emissive = _binary(material, unreal.MaterialExpressionMultiply, line, glow, 300, 200)
+    mel.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+
+    base = _vector_param(material, "BaseColor", (0.014, 0.016, 0.021, 1), 100, -300)
+    metallic = _scalar_param(material, "Metallic", 0.7, 100, -180)
+    roughness = _scalar_param(material, "Roughness", 0.22, 100, -80)
+    mel.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.connect_material_property(metallic, "", unreal.MaterialProperty.MP_METALLIC)
+    mel.connect_material_property(roughness, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mel.recompile_material(material)
+    return material
+
+
+def create_server_led_material():
+    """M_NF_ServerLEDs : façades de baies de serveurs couvertes de LED qui clignotent au hasard.
+    Chaque cellule de 7 cm (plan XZ du monde) reçoit une valeur pseudo-aléatoire qui décale son clignotement."""
+    material, _ = _load_or_create("M_NF_ServerLEDs", MATERIALS, unreal.Material, unreal.MaterialFactoryNew())
+    _reset_material(material)
+
+    world = _expr(material, unreal.MaterialExpressionWorldPosition, -1800, 0)
+    xz = _mask(material, world, -1600, 0, r=True, b=True)
+    cells = _op(material, unreal.MaterialExpressionDivide, xz, -1450, 0, const_b=7.0)
+    cell_id = _op(material, unreal.MaterialExpressionFloor, cells, -1300, -100)
+    seed = _expr(material, unreal.MaterialExpressionConstant2Vector, -1300, 0, r=12.9898, g=78.233)
+    dot = _binary(material, unreal.MaterialExpressionDotProduct, cell_id, seed, -1150, -60)
+    sine = _op(material, unreal.MaterialExpressionSine, dot, -1000, -60)
+    big = _op(material, unreal.MaterialExpressionMultiply, sine, -850, -60, const_b=43758.5453)
+    rand = _op(material, unreal.MaterialExpressionFrac, big, -700, -60)
+
+    time = _expr(material, unreal.MaterialExpressionTime, -1000, 150)
+    slow = _op(material, unreal.MaterialExpressionMultiply, time, -850, 150, const_b=0.9)
+    offset = _op(material, unreal.MaterialExpressionMultiply, rand, -700, 60, const_b=7.0)
+    phase = _binary(material, unreal.MaterialExpressionAdd, slow, offset, -550, 120)
+    cycle = _op(material, unreal.MaterialExpressionFrac, phase, -400, 120)
+    on = _op(material, unreal.MaterialExpressionSubtract, cycle, -250, 120, const_b=0.55)
+    on_sharp = _op(material, unreal.MaterialExpressionMultiply, on, -100, 120, const_b=6.0)
+    blink = _op(material, unreal.MaterialExpressionSaturate, on_sharp, 50, 120)
+
+    local = _op(material, unreal.MaterialExpressionFrac, cells, -1300, 300)
+    centered = _op(material, unreal.MaterialExpressionSubtract, local, -1150, 300, const_b=0.5)
+    d2 = _binary(material, unreal.MaterialExpressionDotProduct, centered, centered, -1000, 300)
+    inside = _op(material, unreal.MaterialExpressionSubtract, d2, -850, 300, const_b=0.06)
+    inside_sharp = _op(material, unreal.MaterialExpressionMultiply, inside, -700, 300, const_b=-80.0)
+    dot_mask = _op(material, unreal.MaterialExpressionSaturate, inside_sharp, -550, 300)
+
+    green = _expr(material, unreal.MaterialExpressionConstant3Vector, -400, -250, constant=unreal.LinearColor(0.1, 1.0, 0.35, 1))
+    cyan = _expr(material, unreal.MaterialExpressionConstant3Vector, -400, -150, constant=unreal.LinearColor(0.1, 0.6, 1.0, 1))
+    lerp = mel.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate, -200, -200)
+    mel.connect_material_expressions(green, "", lerp, "A")
+    mel.connect_material_expressions(cyan, "", lerp, "B")
+    mel.connect_material_expressions(rand, "", lerp, "Alpha")
+
+    level = _op(material, unreal.MaterialExpressionMultiply, blink, 200, 120, const_b=10.0)
+    level_base = _op(material, unreal.MaterialExpressionAdd, level, 350, 120, const_b=0.35)
+    masked = _binary(material, unreal.MaterialExpressionMultiply, level_base, dot_mask, 500, 200)
+    emissive = _binary(material, unreal.MaterialExpressionMultiply, lerp, masked, 650, 0)
+    mel.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+
+    base = _expr(material, unreal.MaterialExpressionConstant3Vector, 650, -200, constant=unreal.LinearColor(0.01, 0.012, 0.015, 1))
+    mel.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    mel.recompile_material(material)
+    return material
+
+
+def create_holo_material():
+    """M_NF_Holo : disque holographique additif, anneaux concentriques qui s'éloignent du centre."""
+    material, _ = _load_or_create("M_NF_Holo", MATERIALS, unreal.Material, unreal.MaterialFactoryNew())
+    _reset_material(material)
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    material.set_editor_property("two_sided", True)
+
+    uv = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1500, 0)
+    centered = _op(material, unreal.MaterialExpressionSubtract, uv, -1300, 0, const_b=0.5)
+    d2 = _binary(material, unreal.MaterialExpressionDotProduct, centered, centered, -1150, 0)
+    radius = _op(material, unreal.MaterialExpressionSquareRoot, d2, -1000, 0)
+
+    rings_count = _scalar_param(material, "Rings", 9.0, -1000, 150)
+    scaled = _binary(material, unreal.MaterialExpressionMultiply, radius, rings_count, -850, 60)
+    time = _expr(material, unreal.MaterialExpressionTime, -1000, 280)
+    speed = _scalar_param(material, "Speed", 0.35, -1000, 380)
+    moving = _binary(material, unreal.MaterialExpressionMultiply, time, speed, -850, 300)
+    wave = _binary(material, unreal.MaterialExpressionSubtract, scaled, moving, -700, 150)
+    frac = _op(material, unreal.MaterialExpressionFrac, wave, -550, 150)
+    ring_cut = _op(material, unreal.MaterialExpressionSubtract, frac, -400, 150, const_b=0.78)
+    ring_sharp = _op(material, unreal.MaterialExpressionMultiply, ring_cut, -250, 150, const_b=5.0)
+    rings = _op(material, unreal.MaterialExpressionSaturate, ring_sharp, -100, 150)
+    rings_lit = _op(material, unreal.MaterialExpressionMultiply, rings, 50, 150, const_b=3.0)
+    glow = _op(material, unreal.MaterialExpressionAdd, rings_lit, 200, 150, const_b=0.12)
+
+    edge_in = _op(material, unreal.MaterialExpressionSubtract, radius, -700, -150, const_a=0.5)
+    edge_sharp = _op(material, unreal.MaterialExpressionMultiply, edge_in, -550, -150, const_b=14.0)
+    edge = _op(material, unreal.MaterialExpressionSaturate, edge_sharp, -400, -150)
+    core = _op(material, unreal.MaterialExpressionMultiply, radius, -700, -280, const_b=5.0)
+    core_fade = _op(material, unreal.MaterialExpressionSaturate, core, -550, -280)
+    fade = _binary(material, unreal.MaterialExpressionMultiply, edge, core_fade, -250, -200)
+
+    mood = _mood(material, -250, 400)
+    brightness = _scalar_param(material, "Brightness", 1.0, 50, 450)
+    tint = _binary(material, unreal.MaterialExpressionMultiply, mood, brightness, 250, 420)
+    shaped = _binary(material, unreal.MaterialExpressionMultiply, glow, fade, 350, 0)
+    emissive = _binary(material, unreal.MaterialExpressionMultiply, shaped, tint, 550, 150)
+    mel.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    mel.recompile_material(material)
+    return material
+
+
+def create_lab_materials(materials):
+    """Ajoute au dictionnaire les materials du décor sci-fi."""
+    materials["MoodCollection"] = create_mood_collection()
+    trim = create_trim_material()
+    surface = eal.load_asset(MATERIALS + "/M_NF_Surface")
+    instanced = eal.load_asset(MATERIALS + "/M_NF_Instanced")
+
+    materials["Trim"] = create_material_instance("MI_NF_Trim", trim, scalars={"Brightness": 6.0})
+    materials["TrimSoft"] = create_material_instance("MI_NF_TrimSoft", trim, scalars={"Brightness": 2.0})
+    materials["FloorGrid"] = create_floor_grid_material()
+    materials["ServerLEDs"] = create_server_led_material()
+    holo = create_holo_material()
+    materials["Holo"] = create_material_instance("MI_NF_Holo", holo, scalars={"Brightness": 1.0, "Rings": 9.0})
+    materials["HoloRing"] = create_material_instance("MI_NF_HoloRing", holo, scalars={"Brightness": 0.7, "Rings": 4.0, "Speed": 0.2})
+    materials["Pulse"] = create_material_instance("MI_NF_Pulse", instanced, scalars={"EmissiveBoost": 9.0})
+
+    def surface_mi(name, color, metallic, roughness):
+        return create_material_instance(name, surface, vectors={"BaseColor": color},
+                                        scalars={"Metallic": metallic, "Roughness": roughness, "EmissiveStrength": 0.0})
+
+    materials["Wall"] = surface_mi("MI_NF_Wall", (0.022, 0.026, 0.034, 1), 0.1, 0.7)
+    materials["Ceiling"] = surface_mi("MI_NF_Ceiling", (0.012, 0.014, 0.018, 1), 0.1, 0.8)
+    materials["Pillar"] = surface_mi("MI_NF_Pillar", (0.055, 0.060, 0.072, 1), 0.9, 0.28)
+    materials["Rack"] = surface_mi("MI_NF_Rack", (0.018, 0.020, 0.024, 1), 0.9, 0.32)
+    # Les panneaux et la table passent eux aussi dans la palette sombre
+    create_material_instance("MI_NF_Console", surface, vectors={"BaseColor": (0.012, 0.016, 0.024, 1)},
+                             scalars={"Metallic": 0.15, "Roughness": 0.75})
+    create_material_instance("MI_NF_Table", surface, vectors={"BaseColor": (0.03, 0.035, 0.045, 1), "EmissiveColor": (0.1, 0.5, 1.0, 1)},
+                             scalars={"Metallic": 0.9, "Roughness": 0.22, "EmissiveStrength": 0.05})
+    return materials
 
 # --- Sons ------------------------------------------------------------------
 
@@ -247,6 +469,7 @@ def create_blueprints(materials, sounds):
     _set_materials(cdo, "table_mesh", materials["Table"])
     _set_materials(cdo, "neuron_instances", materials["Neuron"])
     _set_materials(cdo, "connection_instances", materials["Connection"])
+    _set_materials(cdo, "pulse_instances", materials["Pulse"])
     cdo.set_editor_property("training_start_sound", sounds["S_NF_TrainingStart"])
     cdo.set_editor_property("training_failed_sound", sounds["S_NF_Failure"])
     blueprints["NetworkBuilder"] = bp

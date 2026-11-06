@@ -54,6 +54,12 @@ ANFNetworkBuilder::ANFNetworkBuilder()
 	ConnectionInstances->SetCastShadow(false);
 	ConnectionInstances->SetNumCustomDataFloats(NumCustomData);
 
+	PulseInstances = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("PulseInstances"));
+	PulseInstances->SetupAttachment(SceneRoot);
+	PulseInstances->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	PulseInstances->SetCastShadow(false);
+	PulseInstances->SetNumCustomDataFloats(NumCustomData);
+
 	Trainer = CreateDefaultSubobject<UNFTrainerComponent>(TEXT("Trainer"));
 
 	for (int32 c = 0; c < MaxColumns; ++c)
@@ -81,6 +87,7 @@ ANFNetworkBuilder::ANFNetworkBuilder()
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(TEXT("/Engine/BasicShapes/Cylinder"));
 	TableMesh->SetStaticMesh(CubeMesh.Object);
 	NeuronInstances->SetStaticMesh(SphereMesh.Object);
+	PulseInstances->SetStaticMesh(SphereMesh.Object);
 	ConnectionInstances->SetStaticMesh(CylinderMesh.Object);
 
 	LearningRateSteps = { 0.01f, 0.05f, 0.1f, 0.3f, 0.5f, 1.f, 2.f };
@@ -127,6 +134,32 @@ void ANFNetworkBuilder::Tick(float DeltaSeconds)
 		VisualTimer = 0.f;
 		UpdateVisualization();
 	}
+
+	UpdatePulses(DeltaSeconds);
+}
+
+void ANFNetworkBuilder::UpdatePulses(float DeltaSeconds)
+{
+	if (!PulseInstances || PulseStarts.Num() != PulseInstances->GetInstanceCount())
+	{
+		return;
+	}
+
+	// Les impulsions accélèrent pendant l'entraînement
+	const float TargetSpeed = Trainer && Trainer->IsTraining() ? PulseSpeedTraining : PulseSpeedIdle;
+	PulseSpeed = FMath::FInterpTo(PulseSpeed, TargetSpeed, DeltaSeconds, 3.f);
+	PulsePhase = FMath::Fmod(PulsePhase + DeltaSeconds * PulseSpeed, 1.f);
+
+	const FVector Scale(PulseDiameter / 100.f);
+	for (int32 i = 0; i < PulseStarts.Num(); ++i)
+	{
+		const float Alpha = FMath::Frac(PulsePhase + PulseOffsets[i]);
+		const FVector Location = FMath::Lerp(PulseStarts[i], PulseEnds[i], Alpha);
+		// Grossit au milieu du trajet, disparaît aux extrémités
+		const float Size = FMath::Sin(Alpha * PI);
+		PulseInstances->UpdateInstanceTransform(i, FTransform(FRotator::ZeroRotator, Location, Scale * Size), false, false, true);
+	}
+	PulseInstances->MarkRenderStateDirty();
 }
 
 // ---------------------------------------------------------------------------
@@ -463,7 +496,15 @@ void ANFNetworkBuilder::RebuildVisualization()
 		}
 	}
 
-	// Un cylindre par poids, orienté de la colonne c vers la colonne c + 1
+	// Un cylindre par poids, orienté de la colonne c vers la colonne c + 1, et une impulsion qui le parcourt
+	if (PulseInstances)
+	{
+		PulseInstances->ClearInstances();
+	}
+	PulseStarts.Reset();
+	PulseEnds.Reset();
+	PulseOffsets.Reset();
+	FRandomStream PulseRng(1234);
 	for (int32 c = 0; c + 1 < NumColumns; ++c)
 	{
 		for (int32 o = 0; o < Sizes[c + 1]; ++o)
@@ -471,6 +512,13 @@ void ANFNetworkBuilder::RebuildVisualization()
 			for (int32 i = 0; i < Sizes[c]; ++i)
 			{
 				ConnectionInstances->AddInstance(FTransform::Identity);
+				PulseStarts.Add(GetNeuronLocation(c, i, NumColumns, Sizes[c]));
+				PulseEnds.Add(GetNeuronLocation(c + 1, o, NumColumns, Sizes[c + 1]));
+				PulseOffsets.Add(PulseRng.FRand());
+				if (PulseInstances)
+				{
+					PulseInstances->AddInstance(FTransform::Identity);
+				}
 			}
 		}
 	}
@@ -551,10 +599,23 @@ void ANFNetworkBuilder::UpdateVisualization()
 				const FLinearColor Color = Weight >= 0.f ? PositiveWeightColor : NegativeWeightColor;
 				const float Data[NumCustomData] = { Color.R, Color.G, Color.B, 0.3f + 2.f * Magnitude };
 				ConnectionInstances->SetCustomData(Instance, MakeArrayView(Data, NumCustomData), false);
+
+				// L'impulsion est d'autant plus vive que le signal transmis (activation x poids) est fort
+				if (PulseInstances && Instance < PulseInstances->GetInstanceCount())
+				{
+					const float Source = (c == 0) ? Network.GetLastInput()[i] : NetLayers[c - 1].A[i];
+					const float Signal = FMath::Clamp(FMath::Abs(Source * Weight), 0.f, 1.5f);
+					const float PulseData[NumCustomData] = { Color.R, Color.G, Color.B, 0.6f + 5.f * Signal };
+					PulseInstances->SetCustomData(Instance, MakeArrayView(PulseData, NumCustomData), false);
+				}
 			}
 		}
 	}
 	ConnectionInstances->MarkRenderStateDirty();
+	if (PulseInstances)
+	{
+		PulseInstances->MarkRenderStateDirty();
+	}
 
 	UpdateLabels();
 }

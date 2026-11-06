@@ -182,6 +182,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Visualization")
 	FLinearColor NegativeWeightColor = FLinearColor(1.f, 0.25f, 0.1f);
 
+	/** Impulsions lumineuses qui parcourent les poids : allers par seconde au repos et pendant l'entraînement. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Visualization", meta = (ClampMin = "0"))
+	float PulseSpeedIdle = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Visualization", meta = (ClampMin = "0"))
+	float PulseSpeedTraining = 1.6f;
+
+	/** Diamètre d'une impulsion, en cm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Visualization", meta = (ClampMin = "0"))
+	float PulseDiameter = 3.5f;
+
 	/** Durée d'affichage de chaque exemple du dataset sur l'holotable. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Visualization", meta = (ClampMin = "0.1"))
 	float SampleDisplayDuration = 1.2f;
@@ -213,6 +224,9 @@ protected:
 
 	void UpdateLabels();
 
+	/** Fait avancer les impulsions le long des poids (appelé à chaque frame). */
+	void UpdatePulses(float DeltaSeconds);
+
 	/** Taille de chaque colonne : entrée, couches cachées, sortie. */
 	void GetColumnSizes(TArray<int32>& OutSizes) const;
 
@@ -233,6 +247,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Components")
 	TObjectPtr<UInstancedStaticMeshComponent> ConnectionInstances;
 
+	/** Impulsions lumineuses qui circulent le long des poids, de l'entrée vers la sortie. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Components")
+	TObjectPtr<UInstancedStaticMeshComponent> PulseInstances;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Components")
 	TObjectPtr<UNFTrainerComponent> Trainer;
 
@@ -250,6 +268,12 @@ private:
 	FString SuccessArchitecture;
 	float SuccessLearningRate = 0.f;
 	FNFTrainingProgress SuccessProgress;
+
+	TArray<FVector> PulseStarts;
+	TArray<FVector> PulseEnds;
+	TArray<float> PulseOffsets;
+	float PulsePhase = 0.f;
+	float PulseSpeed = 0.35f;
 
 	int32 DisplayedSample = 0;
 	float SampleTimer = 0.f;

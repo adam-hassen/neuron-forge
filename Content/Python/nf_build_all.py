@@ -34,11 +34,12 @@ def main():
     try:
         sounds = step("Sons (génération + import)", nf_assets.import_sounds)
         materials = step("Materials", nf_assets.create_materials)
+        step("Materials du décor (ambiance, sol, serveurs, hologrammes)", nf_assets.create_lab_materials, materials)
         blueprints = step("Blueprints", nf_assets.create_blueprints, materials, sounds)
         step("Niveau " + nf_level.LEVEL_PATH, nf_level.build_level, blueprints, materials)
         step("Enregistrement", nf_assets.save_all)
         report.append("Sons : " + ", ".join(sorted(sounds)))
-        report.append("Materials : " + ", ".join(sorted(m.get_name() for m in materials.values())))
+        report.append("Materials : " + ", ".join(sorted(m.get_name() for m in materials.values() if m)))
         report.append("Blueprints : " + ", ".join(sorted(b.get_name() for b in blueprints.values())))
     finally:
         path = os.path.join(unreal.Paths.project_saved_dir(), "nf_build_report.txt")

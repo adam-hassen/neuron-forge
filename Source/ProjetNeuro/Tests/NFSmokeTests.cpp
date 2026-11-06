@@ -261,6 +261,17 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 	}
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC]() { PC->CloseOverlays(); return true; }));
 
+	// Retour à l'état de repos (ambiance cyan) : retirer une couche repasse l'holotable en Idle
+	ANFNetworkBuilder* Builder = NFSmoke::FindActor<ANFNetworkBuilder>(World);
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Builder]()
+	{
+		if (Builder && Builder->GetNumHiddenLayers() > 0)
+		{
+			Builder->ApplyAction(ENFConfigAction::RemoveLayer);
+		}
+		return true;
+	}));
+
 	struct FView
 	{
 		const TCHAR* Name;
@@ -273,6 +284,7 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 		{ TEXT("Console"), FVector(-330.f, 430.f, 100.f), FVector(-60.f, 430.f, 140.f) },
 		{ TEXT("Aide"), FVector(-330.f, -430.f, 100.f), FVector(-60.f, -430.f, 140.f) },
 		{ TEXT("Porte"), FVector(-100.f, -150.f, 100.f), FVector(610.f, 0.f, 200.f) },
+		{ TEXT("Serveurs"), FVector(-420.f, -250.f, 100.f), FVector(-560.f, 650.f, 120.f) },
 	};
 
 	for (const FView& View : Views)
@@ -298,6 +310,22 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 		}));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
 	}
+	// Pendant l'entraînement (modèle sans couche cachée : l'entraînement dure, ambiance orange pulsée)
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Character, Builder]()
+	{
+		NFSmoke::Teleport(Character, FVector(-420.f, 0.f, 100.f));
+		const FVector Eye = Character->GetFirstPersonCamera()->GetComponentLocation();
+		Character->GetController()->SetControlRotation((FVector(0.f, 0.f, 190.f) - Eye).Rotation());
+		if (Builder)
+		{
+			Builder->StartTraining();
+		}
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Capture(TEXT("Entrainement"))));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+
 	// Écran de fin
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC]() { PC->HandleLevelCompleted(); return true; }));
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(3.f));
