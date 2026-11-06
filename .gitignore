@@ -35,3 +35,6 @@ __pycache__/
 # --- Dossiers personnels de l'éditeur ---
 Content/Developers/
 Content/Collections/
+
+# --- Outils locaux (non versionnés) ---
+.claude/
