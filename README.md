@@ -56,7 +56,9 @@ Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui 
 5. **Validation** : si la précision cible est atteinte, un **son de validation** retentit et la **porte du labo s'ouvre** avec une animation. Sinon, le joueur modifie son architecture et réessaie.
 6. **Sortie** : franchir la porte déclenche la zone de fin de niveau.
 
-**Contrôles (PC)** : `ZQSD`/`WASD` pour se déplacer, la souris pour regarder, `Espace` pour sauter, `E` ou clic gauche pour interagir avec l'objet visé.
+**Contrôles (PC)** : `ZQSD`/`WASD` pour se déplacer, la souris pour regarder, `Espace` pour sauter, `E` ou clic gauche pour interagir avec l'objet visé. À la manette : stick gauche/droit, `A` pour sauter, `X` pour interagir.
+
+L'objet visé est mis en surbrillance et le réticule affiche l'action possible, par exemple « [E] Ajouter un neurone ».
 
 ---
 
@@ -89,8 +91,12 @@ Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui 
 | Réseau de neurones | `FNFNeuralNetwork`, `FNFDenseLayer`, `FNFLayerConfig`, `ENFActivation` | Perceptron multicouche en C++ pur : propagation avant, rétropropagation, SGD avec mélange des exemples, initialisation Xavier/He, perte choisie automatiquement (entropie croisée binaire avec une sortie Sigmoid, MSE sinon). |
 | Données | `FNFDataset` | Datasets d'entraînement (XOR pour le MVP). |
 | Entraînement | `UNFTrainerComponent` | Entraînement réparti sur plusieurs frames, avec des événements de progression et de réussite. |
-| Interaction | `INFInteractable`, `UNFInteractorComponent` | Interface commune à tous les objets interactifs, et composant qui interagit (line trace depuis la caméra sur PC, composant de main en VR plus tard). |
-| Joueur | `ANFCharacter`, `ANFPlayerController`, `ANFGameMode`, `ANFHUD` | Personnage FPS en C++ (repris du template), contrôleur, règles du jeu, réticule et indications à l'écran. |
+| Interaction | `INFInteractable` | Interface commune à tous les objets interactifs : `CanInteract`, `Interact`, `OnFocusBegin`, `OnFocusEnd`, `GetInteractionPrompt`. L'objet ne sait pas comment on interagit avec lui. |
+| Interaction | `UNFInteractorComponent` | Ce qui interagit : un rayon depuis la caméra (PC) ou depuis un composant quelconque via `SetTraceSource` (contrôleur VR), et `InteractWith` pour un contact direct (main VR). |
+| Interaction | `ANFInteractableActor` | Acteur interactif de base : mesh, texte d'aide, surbrillance (paramètre de material `Highlight` + Custom Depth), événement `OnInteracted`. |
+| Joueur | `ANFCharacter` | Personnage FPS en C++ reprenant la configuration du template (bras FP, corps en ombre, caméra sur la tête, FOV first person) et ses assets ; ajoute l'action « Interagir ». |
+| Joueur | `ANFPlayerController`, `ANFPlayerCameraManager`, `ANFHUD` | Contrôleur, limites de caméra du template, réticule, texte d'aide et messages temporaires dessinés au Canvas. |
+| Règles | `ANFGameMode` | Associe le personnage, le contrôleur et le HUD du jeu. |
 | Labo | `ANFNetworkBuilder` | Holotable : configuration et visualisation 3D du réseau. |
 | Labo | `ANFConfigButton` | Boutons muraux de configuration (couches, neurones, activation, taux d'apprentissage). |
 | Labo | `ANFFloorButton` | Bouton au sol (Box Collision) qui lance l'entraînement. |
@@ -107,7 +113,10 @@ ProjetNeuro/
 │   ├── ProjetNeuro.Target.cs
 │   ├── ProjetNeuroEditor.Target.cs
 │   └── ProjetNeuro/         Code C++ du jeu
+│       ├── Core/            GameMode
+│       ├── Interaction/     Interface commune, interacteur, acteur interactif de base
 │       ├── NeuralNetwork/   Réseau de neurones, activations, datasets
+│       ├── Player/          Personnage, contrôleur, caméra, HUD
 │       └── Tests/           Tests d'automatisation
 ├── Content/
 │   ├── Python/              Scripts Python de génération du contenu
@@ -165,7 +174,8 @@ Les scripts se trouvent dans `Content/Python/` et sont exécutés en mode *headl
 
 | Script | Rôle |
 |---|---|
-| `nf_check_env.py` | Vérifie que Python fonctionne et voit les assets du projet (rapport dans `Saved/nf_check_env.txt`). |
+| `nf_check_env.py` | Vérifie que Python fonctionne, que les classes C++ du jeu sont chargées et que le personnage a bien récupéré les assets du template (rapport dans `Saved/nf_check_env.txt`). |
+| `nf_dump_template.py` | Inventaire des Blueprints du template First Person : composants, assets, réglages et mappings d'entrée (rapport dans `Saved/nf_dump_template.txt`). |
 
 Ils peuvent aussi être lancés depuis l'éditeur ouvert : *Outils → Exécuter un script Python*.
 
@@ -186,6 +196,7 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `GradientCheck` | Les gradients de la rétropropagation correspondent aux dérivées numériques (écart < 0,0002). |
 | `XORSolved` | `2 - 4 Tanh - 1 Sigmoid` résout XOR (100 %). |
 | `XORLinearFails` | Sans couche cachée, ou avec une couche cachée Linear, XOR reste à 50 % : **la non-linéarité est indispensable**. |
+| `Interaction.Interactor` | Dans un monde de test : rayon, distance maximale, focus et surbrillance, interaction, objet désactivé, source de visée de type contrôleur VR, interaction directe sans rayon. |
 
 **Mesures de calibrage** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
 
@@ -208,8 +219,8 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 |---|---|---|
 | 0 | Dépôt Git + LFS, conversion du template en projet C++, activation de Python | ✅ Terminé |
 | 1 | Réseau de neurones en C++ et test automatisé sur XOR | ✅ Terminé |
-| 2 | Interface d'interaction commune, personnage C++, HUD | ⏳ Prochaine étape |
-| 3 | Acteurs du labo : holotable, boutons, bouton au sol, écran d'état, porte, son | 🔲 À faire |
+| 2 | Interface d'interaction commune, personnage C++, HUD | ✅ Terminé |
+| 3 | Acteurs du labo : holotable, boutons, bouton au sol, écran d'état, porte, son | ⏳ En cours |
 | 4 | Génération du contenu en Python : materials, son, Blueprints, niveau `L_Lab` | 🔲 À faire |
 | 5 | Test de bout en bout et finitions | 🔲 À faire |
 
