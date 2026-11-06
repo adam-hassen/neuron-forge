@@ -125,8 +125,13 @@ ProjetNeuro/
 ├── Content/
 │   ├── Python/              Scripts Python de génération du contenu
 │   ├── FirstPerson/         Personnage et assets du template
-│   └── NeuronForge/         Contenu généré (niveau, materials, Blueprints)
-└── Config/                  Configuration du projet
+│   └── NeuronForge/         Contenu généré par les scripts
+│       ├── Audio/           Effets sonores (S_NF_*)
+│       ├── Blueprints/      Blueprints enfants des classes C++ (BP_NF_*)
+│       ├── Maps/            Niveau du labo L_Lab
+│       └── Materials/       Materials et instances (M_NF_*, MI_NF_*)
+├── RawAssets/Audio/         Sons WAV générés (source de l'import)
+└── Config/                  Configuration du projet (carte et GameMode par défaut : L_Lab, BP_NF_GameMode)
 ```
 
 ---
@@ -166,7 +171,7 @@ Si le dépôt a été cloné sans LFS, récupérez les assets avec `git lfs pull
 
 ### Ouvrir et jouer
 
-Double-cliquez sur `ProjetNeuro.uproject`. Si l'éditeur propose de recompiler des modules manquants, acceptez. Lancez ensuite le niveau du labo avec **Play**.
+Double-cliquez sur `ProjetNeuro.uproject`. Si l'éditeur propose de recompiler des modules manquants, acceptez. L'éditeur s'ouvre sur le niveau du labo `L_Lab` (`Content/NeuronForge/Maps`) : lancez-le avec **Play**.
 
 ---
 
@@ -178,8 +183,21 @@ Les scripts se trouvent dans `Content/Python/` et sont exécutés en mode *headl
 "<UE_5.6>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<chemin>\ProjetNeuro.uproject" -run=pythonscript -script="<chemin absolu du script .py>" -unattended -nullrhi
 ```
 
+**Pour régénérer tout le contenu du jeu** (sons, materials, Blueprints, niveau) :
+
+```bat
+"<UE_5.6>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<chemin>\ProjetNeuro.uproject" -run=pythonscript -script="<chemin>\Content\Python\nf_build_all.py" -unattended -nullrhi
+```
+
+Le rapport est écrit dans `Saved/nf_build_report.txt`. `nf_validate_content.py` vérifie ensuite, dans un nouveau processus, que tout a bien été enregistré (`Saved/nf_validate_report.txt`).
+
 | Script | Rôle |
 |---|---|
+| `nf_build_all.py` | Point d'entrée : sons → materials → Blueprints → niveau `L_Lab`, avec rapport. |
+| `nf_audio.py` | Synthèse des 7 effets sonores en Python pur (WAV dans `RawAssets/Audio/`) : validation (arpège do-mi-sol-do), clic, bouton au sol, lancement, échec, porte, fin de niveau. |
+| `nf_assets.py` | Materials (`M_NF_Instanced` lu par instance, `M_NF_Highlight` avec paramètre `Highlight`, `M_NF_Surface`) et leurs 11 instances ; import des sons ; Blueprints enfants `BP_NF_*` des classes C++ avec materials et sons assignés. |
+| `nf_level.py` | Construction du niveau `L_Lab` : salle 16 × 14 m, couloir de sortie, éclairage, post-process, holotable, écran d'état, bouton au sol, console de 13 boutons, panneau « mode d'emploi », porte et zone de sortie, GameMode du niveau. |
+| `nf_validate_content.py` | Contrôle du contenu enregistré : materials et sons des Blueprints, acteurs du niveau et leurs références, GameMode. |
 | `nf_check_env.py` | Vérifie que Python fonctionne, que les classes C++ du jeu sont chargées et que le personnage a bien récupéré les assets du template (rapport dans `Saved/nf_check_env.txt`). |
 | `nf_dump_template.py` | Inventaire des Blueprints du template First Person : composants, assets, réglages et mappings d'entrée (rapport dans `Saved/nf_dump_template.txt`). |
 
@@ -208,6 +226,12 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `Lab.XORSuccessOpensDoor` | Bout en bout : `2 - 4 Tanh - 1 Sigmoid` réussit (57 epochs) et la porte s'ouvre complètement. |
 | `Lab.LinearModelKeepsDoorClosed` | Sans couche cachée : échec, porte fermée, conseil « Ajoutez une couche », configuration de nouveau modifiable. |
 
+**Test de fumée du niveau réel** (`Smoke.LabPlaythrough`, contexte jeu uniquement) : il lance le jeu sur `L_Lab` et rejoue le parcours du joueur. Le joueur vise et actionne les boutons de la console par le vrai rayon d'interaction et règle une couche Tanh. Il monte ensuite sur le bouton au sol, attend que le modèle soit validé et que la porte s'ouvre, puis entre dans la zone de sortie. Résultat actuel : modèle validé en 57 epochs, porte ouverte en 2,1 s.
+
+```bat
+"<UE_5.6>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<chemin>\ProjetNeuro.uproject" -game -nullrhi -nosound -ExecCmds="Automation RunTests NeuronForge.Smoke; Quit" -TestExit="Automation Test Queue Empty"
+```
+
 **Mesures de calibrage** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
 
 | Architecture | Taux d'apprentissage | Résultat |
@@ -231,8 +255,8 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | 1 | Réseau de neurones en C++ et test automatisé sur XOR | ✅ Terminé |
 | 2 | Interface d'interaction commune, personnage C++, HUD | ✅ Terminé |
 | 3 | Acteurs du labo : holotable, boutons, bouton au sol, écran d'état, porte, son | ✅ Terminé |
-| 4 | Génération du contenu en Python : materials, son, Blueprints, niveau `L_Lab` | ⏳ En cours |
-| 5 | Test de bout en bout et finitions | 🔲 À faire |
+| 4 | Génération du contenu en Python : materials, son, Blueprints, niveau `L_Lab` | ✅ Terminé |
+| 5 | Test de bout en bout et finitions | ⏳ Test dans l'éditeur en cours |
 
 ---
 
