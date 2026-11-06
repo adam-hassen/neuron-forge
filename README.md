@@ -86,7 +86,7 @@ Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui 
 
 | Domaine | Classes | Rôle |
 |---|---|---|
-| Réseau de neurones | `FNFNeuralNetwork`, `FNFDenseLayer`, `ENFActivation` | Perceptron multicouche en C++ pur : propagation avant, rétropropagation, SGD, initialisation Xavier/He. |
+| Réseau de neurones | `FNFNeuralNetwork`, `FNFDenseLayer`, `FNFLayerConfig`, `ENFActivation` | Perceptron multicouche en C++ pur : propagation avant, rétropropagation, SGD avec mélange des exemples, initialisation Xavier/He, perte choisie automatiquement (entropie croisée binaire avec une sortie Sigmoid, MSE sinon). |
 | Données | `FNFDataset` | Datasets d'entraînement (XOR pour le MVP). |
 | Entraînement | `UNFTrainerComponent` | Entraînement réparti sur plusieurs frames, avec des événements de progression et de réussite. |
 | Interaction | `INFInteractable`, `UNFInteractorComponent` | Interface commune à tous les objets interactifs, et composant qui interagit (line trace depuis la caméra sur PC, composant de main en VR plus tard). |
@@ -107,6 +107,8 @@ ProjetNeuro/
 │   ├── ProjetNeuro.Target.cs
 │   ├── ProjetNeuroEditor.Target.cs
 │   └── ProjetNeuro/         Code C++ du jeu
+│       ├── NeuralNetwork/   Réseau de neurones, activations, datasets
+│       └── Tests/           Tests d'automatisation
 ├── Content/
 │   ├── Python/              Scripts Python de génération du contenu
 │   ├── FirstPerson/         Personnage et assets du template
@@ -169,13 +171,44 @@ Ils peuvent aussi être lancés depuis l'éditeur ouvert : *Outils → Exécuter
 
 ---
 
+## Tests automatisés
+
+Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Source/ProjetNeuro/Tests/`), visibles dans *Outils → Session Frontend → Automation* sous `NeuronForge`. En ligne de commande (éditeur fermé) :
+
+```bat
+"<UE_5.6>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<chemin>\ProjetNeuro.uproject" -ExecCmds="Automation RunTests NeuronForge; Quit" -unattended -nullrhi -TestExit="Automation Test Queue Empty"
+```
+
+| Test | Ce qu'il vérifie |
+|---|---|
+| `Activations` | Valeurs des fonctions d'activation, stabilité numérique de Sigmoid, cycle des activations. |
+| `Determinism` | Même graine ⇒ mêmes poids ; nombre de paramètres ; perte choisie automatiquement. |
+| `GradientCheck` | Les gradients de la rétropropagation correspondent aux dérivées numériques (écart < 0,0002). |
+| `XORSolved` | `2 - 4 Tanh - 1 Sigmoid` résout XOR (100 %). |
+| `XORLinearFails` | Sans couche cachée, ou avec une couche cachée Linear, XOR reste à 50 % : **la non-linéarité est indispensable**. |
+
+**Mesures de calibrage** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
+
+| Architecture | Taux d'apprentissage | Résultat |
+|---|:---:|---|
+| 2 - 1 Sigmoid (sans couche cachée) | 0,5 | ❌ bloqué à 50 % |
+| 2 - 8 Linear - 1 Sigmoid | 0,5 | ❌ bloqué à 50 % |
+| 2 - 2 Tanh - 1 Sigmoid | 0,5 | ❌ bloqué à 50 % (trop peu de neurones avec cette initialisation) |
+| 2 - 4 Tanh - 1 Sigmoid | 0,5 | ✅ 55 epochs |
+| 2 - 4 Tanh - 4 Tanh - 1 Sigmoid | 0,3 | ✅ 55 epochs |
+| 2 - 8 ReLU - 1 Sigmoid | 0,1 | ✅ 132 epochs |
+| 2 - 4 Sigmoid - 1 Sigmoid | 1,0 | ✅ 171 epochs |
+| 2 - 4 Tanh - 1 Sigmoid | 0,01 | ✅ 2067 epochs (taux trop faible : très lent) |
+
+---
+
 ## État d'avancement
 
 | Étape | Contenu | État |
 |---|---|---|
 | 0 | Dépôt Git + LFS, conversion du template en projet C++, activation de Python | ✅ Terminé |
-| 1 | Réseau de neurones en C++ et test automatisé sur XOR | ⏳ En cours |
-| 2 | Interface d'interaction commune, personnage C++, HUD | 🔲 À faire |
+| 1 | Réseau de neurones en C++ et test automatisé sur XOR | ✅ Terminé |
+| 2 | Interface d'interaction commune, personnage C++, HUD | ⏳ Prochaine étape |
 | 3 | Acteurs du labo : holotable, boutons, bouton au sol, écran d'état, porte, son | 🔲 À faire |
 | 4 | Génération du contenu en Python : materials, son, Blueprints, niveau `L_Lab` | 🔲 À faire |
 | 5 | Test de bout en bout et finitions | 🔲 À faire |
