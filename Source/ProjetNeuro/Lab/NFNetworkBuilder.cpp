@@ -345,6 +345,7 @@ bool ANFNetworkBuilder::StartTraining()
 	{
 		return false;
 	}
+	++TrainingAttempts;
 
 	if (TrainingStartSound)
 	{
@@ -363,6 +364,10 @@ void ANFNetworkBuilder::HandleTrainerStateChanged(ENFTrainingState NewState)
 {
 	if (NewState == ENFTrainingState::Succeeded)
 	{
+		bHasSucceeded = true;
+		SuccessArchitecture = DescribeNetwork();
+		SuccessLearningRate = GetLearningRate();
+		SuccessProgress = Trainer->GetProgress();
 		ShowPlayerMessage(FString::Printf(TEXT("Modèle validé en %d epochs !"), Trainer->GetProgress().Epoch),
 			FLinearColor(0.2f, 1.f, 0.4f));
 	}

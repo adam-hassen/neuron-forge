@@ -108,6 +108,19 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Neuron Forge|Training")
 	UNFTrainerComponent* GetTrainer() const { return Trainer; }
 
+	/** Nombre d'entraînements lancés depuis le début du niveau. */
+	UFUNCTION(BlueprintPure, Category = "Neuron Forge|Training")
+	int32 GetTrainingAttempts() const { return TrainingAttempts; }
+
+	/** Le modèle a-t-il déjà atteint la cible pendant ce niveau ? */
+	UFUNCTION(BlueprintPure, Category = "Neuron Forge|Training")
+	bool HasSucceeded() const { return bHasSucceeded; }
+
+	/** Architecture, taux d'apprentissage et progression du modèle validé. */
+	const FString& GetSuccessArchitecture() const { return SuccessArchitecture; }
+	float GetSuccessLearningRate() const { return SuccessLearningRate; }
+	const FNFTrainingProgress& GetSuccessProgress() const { return SuccessProgress; }
+
 	/** Déclenché à chaque modification de la configuration ou changement d'état d'entraînement. */
 	UPROPERTY(BlueprintAssignable, Category = "Neuron Forge|Network")
 	FNFOnNetworkChanged OnNetworkChanged;
@@ -232,6 +245,12 @@ protected:
 	TObjectPtr<UTextRenderComponent> SampleLabel;
 
 private:
+	int32 TrainingAttempts = 0;
+	bool bHasSucceeded = false;
+	FString SuccessArchitecture;
+	float SuccessLearningRate = 0.f;
+	FNFTrainingProgress SuccessProgress;
+
 	int32 DisplayedSample = 0;
 	float SampleTimer = 0.f;
 	float VisualTimer = 0.f;

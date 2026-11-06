@@ -47,22 +47,27 @@ Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui 
 
 ## Gameplay
 
-1. **Entrée dans le laboratoire** : le joueur arrive dans une salle fermée par une porte. Un panneau lumineux (Text Render) affiche la mission : « Entraînez un modèle qui résout XOR avec 100 % de précision ».
-2. **Construction du réseau** sur l'**holotable** centrale, où le réseau est représenté en 3D : chaque neurone est une sphère émissive et chaque poids un lien coloré selon son signe et épais selon son amplitude. Les panneaux de configuration permettent de :
+1. **Briefing de mission** : au lancement, un écran d'introduction en 4 pages (jeu en pause) présente le contexte, le problème XOR, les 3 étapes de la mission et les commandes. Il se rappelle à tout moment avec `H`. Pendant la partie, un panneau d'objectifs en haut à gauche coche les étapes et compte les essais.
+2. **Entrée dans le laboratoire** : le joueur arrive dans une salle fermée par une porte. L'écran d'état (Text Render) affiche la mission : « Entraînez un modèle qui résout XOR avec 100 % de précision ».
+3. **Construction du réseau** sur l'**holotable** centrale, où le réseau est représenté en 3D : chaque neurone est une sphère émissive et chaque poids un lien coloré selon son signe et épais selon son amplitude. Les panneaux de configuration permettent de :
    - ajouter ou retirer une couche cachée (jusqu'à 3),
    - augmenter ou diminuer le nombre de neurones d'une couche (1 à 8),
    - changer la fonction d'activation (ReLU, Sigmoid, Tanh, Linear),
    - régler le taux d'apprentissage.
-3. **Lancement de l'entraînement** : le joueur marche sur le **bouton au sol**. L'entraînement se déroule progressivement (quelques epochs par frame) pour que l'on voie le réseau apprendre.
-4. **Suivi en direct** : l'écran d'état affiche l'architecture, l'epoch courante, la perte, la précision et les prédictions sur les 4 exemples XOR.
-5. **Validation** : si la précision cible est atteinte, un **son de validation** retentit et la **porte du labo s'ouvre** avec une animation. Sinon, le joueur modifie son architecture et réessaie.
-6. **Sortie** : franchir la porte déclenche la zone de fin de niveau.
+4. **Lancement de l'entraînement** : le joueur marche sur le **bouton au sol**. L'entraînement se déroule progressivement (quelques epochs par frame) pour que l'on voie le réseau apprendre.
+5. **Suivi en direct** : l'écran d'état affiche l'architecture, l'epoch courante, la perte, la précision et les prédictions sur les 4 exemples XOR.
+6. **Validation** : si la précision cible est atteinte, un **son de validation** retentit et la **porte du labo s'ouvre** avec une animation. Sinon, le joueur modifie son architecture et réessaie.
+7. **Sortie** : franchir la porte déclenche l'écran « Mission accomplie » : bilan (architecture, epochs, essais, durée), leçon à retenir, boutons Rejouer / Quitter.
+
+| Briefing : accueil | Briefing : la mission | Écran de fin |
+|:---:|:---:|:---:|
+| ![Briefing](Docs/Images/NF_Intro.png) | ![Mission](Docs/Images/NF_IntroMission.png) | ![Fin](Docs/Images/NF_Fin.png) |
 
 | Vue d'ensemble du labo | Console de configuration | Porte ouverte après validation |
 |:---:|:---:|:---:|
 | ![Entrée du labo](Docs/Images/NF_Entree.png) | ![Console](Docs/Images/NF_Console.png) | ![Porte](Docs/Images/NF_Porte.png) |
 
-**Contrôles (PC)** : `ZQSD`/`WASD` pour se déplacer, la souris pour regarder, `Espace` pour sauter, `E` ou clic gauche pour interagir avec l'objet visé. À la manette : stick gauche/droit, `A` pour sauter, `X` pour interagir.
+**Contrôles (PC)** : `ZQSD`/`WASD` pour se déplacer, la souris pour regarder, `Espace` pour sauter, `E` ou clic gauche pour interagir avec l'objet visé. `H` ou `F1` pour revoir le briefing. À la manette : stick gauche/droit, `A` pour sauter, `X` pour interagir.
 
 L'objet visé est mis en surbrillance et le réticule affiche l'action possible, par exemple « [E] Ajouter un neurone ».
 
@@ -103,6 +108,10 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible,
 | Joueur | `ANFCharacter` | Personnage FPS en C++ reprenant la configuration du template (bras FP, corps en ombre, caméra sur la tête, FOV first person) et ses assets ; ajoute l'action « Interagir ». |
 | Joueur | `ANFPlayerController`, `ANFPlayerCameraManager`, `ANFHUD` | Contrôleur, limites de caméra du template, réticule, texte d'aide et messages temporaires dessinés au Canvas. |
 | Règles | `ANFGameMode` | Associe le personnage, le contrôleur et le HUD du jeu. |
+| Interface | `SNFIntroWidget` | Briefing de mission animé en 4 pages (Slate) : flou d'arrière-plan, fondus, navigation clavier / souris / manette. |
+| Interface | `SNFObjectivesWidget` | Panneau d'objectifs en jeu : étapes cochées au fil de la partie, étape courante en surbrillance, nombre d'essais. |
+| Interface | `SNFEndScreenWidget` | Écran « Mission accomplie » : statistiques, leçon pédagogique, Rejouer / Quitter. |
+| Interface | `NFUIStyle` | Charte graphique commune : couleurs, polices, cartes arrondies, styles de boutons. |
 | Labo | `ANFNetworkBuilder` | Holotable : configuration du réseau (actions `ENFConfigAction`), conseils pédagogiques, visualisation 3D en instances (neurones = sphères colorées selon l'activation et lumineuses selon leur valeur, poids = cylindres bleus/rouges selon le signe et épais selon l'amplitude), défilement des exemples XOR. |
 | Labo | `ANFConfigButton` | Bouton mural : applique une action sur une couche ; grisé si l'action est impossible (couche absente, limite atteinte, entraînement en cours) ; texte d'aide dynamique. |
 | Labo | `ANFFloorButton` | Bouton au sol : trigger Box Collision qui détecte le joueur, plaque qui s'enfonce et s'illumine, lance l'entraînement. |
@@ -127,6 +136,7 @@ ProjetNeuro/
 │       ├── Lab/             Holotable, boutons, bouton au sol, écran, porte, sortie
 │       ├── Player/          Personnage, contrôleur, caméra, HUD
 │       ├── Training/        Composant d'entraînement
+│       ├── UI/              Briefing, objectifs, écran de fin (Slate)
 │       └── Tests/           Tests d'automatisation
 ├── Content/
 │   ├── Python/              Scripts Python de génération du contenu
@@ -265,7 +275,9 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | 2 | Interface d'interaction commune, personnage C++, HUD | ✅ Terminé |
 | 3 | Acteurs du labo : holotable, boutons, bouton au sol, écran d'état, porte, son | ✅ Terminé |
 | 4 | Génération du contenu en Python : materials, son, Blueprints, niveau `L_Lab` | ✅ Terminé |
-| 5 | Test de bout en bout et finitions | ⏳ Test dans l'éditeur en cours |
+| 5 | Test de bout en bout et finitions | ✅ Terminé |
+| 6 | Interface « pro » : briefing animé, objectifs en jeu, écran de fin | ✅ Terminé |
+| 7 | Refonte visuelle du labo : ambiance sci-fi, éclairage réactif, animations | ⏳ En cours |
 
 ---
 

@@ -57,7 +57,8 @@ void ANFExitTrigger::HandleTriggerBegin(UPrimitiveComponent* OverlappedComponent
 	}
 	if (ANFPlayerController* PC = Cast<ANFPlayerController>(Pawn->GetController()))
 	{
-		PC->ShowMessage(CompletionMessage, FLinearColor(0.3f, 1.f, 0.45f), 8.f);
+		PC->ShowMessage(CompletionMessage, FLinearColor(0.3f, 1.f, 0.45f), 4.f);
+		PC->HandleLevelCompleted();
 	}
 	Label->SetText(FText::FromString(TEXT("BRAVO !")));
 	OnLevelCompleted.Broadcast(Pawn);

@@ -14,7 +14,9 @@ public class ProjetNeuro : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
-			"EnhancedInput"
+			"EnhancedInput",
+			"Slate",
+			"SlateCore"
 		});
 
 		PublicIncludePaths.Add(ModuleDirectory);

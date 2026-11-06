@@ -23,6 +23,7 @@
 #include "Lab/NFNetworkBuilder.h"
 #include "Player/NFCharacter.h"
 #include "Player/NFHUD.h"
+#include "Player/NFPlayerController.h"
 #include "Misc/Paths.h"
 #include "Tests/AutomationCommon.h"
 #include "UnrealClient.h"
@@ -104,6 +105,16 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 	}
 	TestNotNull(TEXT("HUD Neuron Forge"), Cast<ANFHUD>(UGameplayStatics::GetPlayerController(World, 0)->GetHUD()));
 
+	ANFPlayerController* PC = Cast<ANFPlayerController>(Character->GetController());
+	if (!TestNotNull(TEXT("Contrôleur Neuron Forge"), PC))
+	{
+		return false;
+	}
+	TestTrue(TEXT("Le briefing s'affiche au lancement"), PC->IsIntroOpen());
+	TestTrue(TEXT("Le jeu est en pause pendant le briefing"), World->IsPaused());
+	PC->CloseOverlays();
+	TestFalse(TEXT("Le jeu reprend après le briefing"), World->IsPaused());
+
 	ANFNetworkBuilder* Builder = NFSmoke::FindActor<ANFNetworkBuilder>(World);
 	ANFLabDoor* Door = NFSmoke::FindActor<ANFLabDoor>(World);
 	ANFFloorButton* FloorButton = NFSmoke::FindActor<ANFFloorButton>(World);
@@ -116,25 +127,31 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Réseau de départ sans couche cachée"), Builder->GetNumHiddenLayers(), 0);
 	TestEqual(TEXT("Porte fermée au départ"), Door->GetDoorState(), ENFDoorState::Closed);
 
-	// 1) Devant la console : ajout d'une couche, puis activation Linear -> ReLU -> Sigmoid -> Tanh
-	NFSmoke::Teleport(Character, FVector(-250.f, 380.f, 100.f));
-	ANFConfigButton* AddLayer = NFSmoke::FindButton(World, ENFConfigAction::AddLayer, 0);
-	ANFConfigButton* Activation = NFSmoke::FindButton(World, ENFConfigAction::NextActivation, 0);
-	if (!TestNotNull(TEXT("Bouton + COUCHE"), AddLayer) || !TestNotNull(TEXT("Bouton activation couche 1"), Activation))
+	// Quelques frames de jeu après la fermeture du briefing (caméra, animation), comme un vrai joueur
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, World, Character, Builder, FloorButton]()
 	{
-		return false;
-	}
+		// 1) Devant la console : ajout d'une couche, puis activation Linear -> ReLU -> Sigmoid -> Tanh
+		NFSmoke::Teleport(Character, FVector(-250.f, 380.f, 100.f));
+		ANFConfigButton* AddLayer = NFSmoke::FindButton(World, ENFConfigAction::AddLayer, 0);
+		ANFConfigButton* Activation = NFSmoke::FindButton(World, ENFConfigAction::NextActivation, 0);
+		if (!TestNotNull(TEXT("Bouton + COUCHE"), AddLayer) || !TestNotNull(TEXT("Bouton activation couche 1"), Activation))
+		{
+			return true;
+		}
 
-	TestTrue(TEXT("Visée et appui sur + COUCHE"), NFSmoke::AimAndInteract(Character, AddLayer));
-	TestTrue(TEXT("Le bouton d'activation est utilisable une fois la couche créée"), INFInteractable::Execute_CanInteract(Activation, Character));
-	for (int32 i = 0; i < 3; ++i)
-	{
-		TestTrue(TEXT("Visée et appui sur le bouton d'activation"), NFSmoke::AimAndInteract(Character, Activation));
-	}
-	TestEqual(TEXT("Architecture configurée"), Builder->DescribeNetwork(), FString(TEXT("2 - 4 Tanh - 1 Sigmoid")));
+		TestTrue(TEXT("Visée et appui sur + COUCHE"), NFSmoke::AimAndInteract(Character, AddLayer));
+		TestTrue(TEXT("Le bouton d'activation est utilisable une fois la couche créée"), INFInteractable::Execute_CanInteract(Activation, Character));
+		for (int32 i = 0; i < 3; ++i)
+		{
+			TestTrue(TEXT("Visée et appui sur le bouton d'activation"), NFSmoke::AimAndInteract(Character, Activation));
+		}
+		TestEqual(TEXT("Architecture configurée"), Builder->DescribeNetwork(), FString(TEXT("2 - 4 Tanh - 1 Sigmoid")));
 
-	// 2) Sur le bouton au sol : le trigger lance l'entraînement
-	NFSmoke::Teleport(Character, FloorButton->GetActorLocation() + FVector(0.f, 0.f, 100.f));
+		// 2) Sur le bouton au sol : le trigger lance l'entraînement
+		NFSmoke::Teleport(Character, FloorButton->GetActorLocation() + FVector(0.f, 0.f, 100.f));
+		return true;
+	}));
 
 	const double StartTime = FPlatformTime::Seconds();
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, Builder, FloorButton, StartTime]()
@@ -190,6 +207,21 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 		}
 		return false;
 	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, PC, StartTime]()
+	{
+		if (PC->IsEndScreenOpen())
+		{
+			AddInfo(TEXT("Écran de fin affiché"));
+			PC->CloseOverlays();
+			return true;
+		}
+		if (FPlatformTime::Seconds() - StartTime > 80.0)
+		{
+			AddError(TEXT("L'écran de fin ne s'est pas affiché"));
+			return true;
+		}
+		return false;
+	}));
 	return true;
 }
 
@@ -207,6 +239,27 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
+
+	ANFPlayerController* PC = Cast<ANFPlayerController>(Character->GetController());
+	auto Capture = [](const FString& Name)
+	{
+		return [Name]()
+		{
+			const FString File = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Screenshots") / (TEXT("NF_") + Name + TEXT(".png")));
+			FScreenshotRequest::RequestScreenshot(File, /*bShowUI*/ true, /*bAddFilenameSuffix*/ false);
+			return true;
+		};
+	};
+
+	// Briefing : page d'accueil et page de mission
+	for (int32 Page : { 0, 1, 2, 3 })
+	{
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC, Page]() { PC->CloseOverlays(); PC->ShowIntro(Page); return true; }));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.2f));
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Capture(FString::Printf(TEXT("Intro%d"), Page))));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+	}
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC]() { PC->CloseOverlays(); return true; }));
 
 	struct FView
 	{
@@ -245,6 +298,12 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 		}));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
 	}
+	// Écran de fin
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC]() { PC->HandleLevelCompleted(); return true; }));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(3.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Capture(TEXT("Fin"))));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC]() { PC->CloseOverlays(); return true; }));
 	return true;
 }
 
