@@ -16,6 +16,8 @@
 #include "Interaction/NFInteractorComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Lab/NFExitTrigger.h"
+#include "Lab/NFGreenhouse.h"
+#include "Lab/NFGreenhousePlant.h"
 #include "Lab/NFFloorButton.h"
 #include "Lab/NFForge.h"
 #include "Lab/NFLabDoor.h"
@@ -282,7 +284,61 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 		return true;
 	}));
 
-	// 6) Sortie puis écran de fin
+	// 6) Entrée dans la serre : le modèle décide du sort des 36 plantes
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, World, Character, Exit]()
+	{
+		ANFGreenhouse* Greenhouse = NFSmoke::FindActor<ANFGreenhouse>(World);
+		if (!TestNotNull(TEXT("Serre"), Greenhouse))
+		{
+			return true;
+		}
+		TestFalse(TEXT("La serre attend le joueur"), Greenhouse->IsActivated());
+		TestTrue(TEXT("La sortie est au fond de la serre"), Exit->GetActorLocation().X > Greenhouse->GetActorLocation().X + 1500.f);
+		NFSmoke::Teleport(Character, Greenhouse->GetActorLocation() + FVector(0.f, 0.f, 100.f));
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, World, Exit, StartTime]()
+	{
+		ANFGreenhouse* Greenhouse = NFSmoke::FindActor<ANFGreenhouse>(World);
+		if (Greenhouse && Greenhouse->IsActivated())
+		{
+			TestEqual(TEXT("36 plantes dans la serre"), Greenhouse->GetPlantCount(), 36);
+			TestTrue(TEXT("Le modèle fait pousser des plantes"), Greenhouse->GetGrownCount() > 0);
+			TestTrue(TEXT("Peu d'erreurs (au plus 4 sur 36)"), Greenhouse->GetMistakeCount() <= 4);
+			TestTrue(TEXT("Le bilan est affiché"), Greenhouse->GetSummaryText().Contains(TEXT("Ton modèle a fait pousser")));
+			TestFalse(TEXT("Le niveau n'est pas fini à l'entrée de la serre"), Exit->IsCompleted());
+			AddInfo(Greenhouse->GetSummaryText().Replace(TEXT("\n"), TEXT(" ")));
+			return true;
+		}
+		if (FPlatformTime::Seconds() - StartTime > 80.0)
+		{
+			AddError(TEXT("La serre ne s'est pas activée à l'entrée du joueur"));
+			return true;
+		}
+		return false;
+	}));
+	// Les plantes poussent ou fanent en vague depuis l'entrée
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, World, StartTime]()
+	{
+		bool bDone = true;
+		for (TActorIterator<ANFGreenhousePlant> It(World); It; ++It)
+		{
+			bDone &= It->GetAnimationProgress() >= 1.f;
+		}
+		if (bDone)
+		{
+			AddInfo(TEXT("Animation de la serre terminée"));
+			return true;
+		}
+		if (FPlatformTime::Seconds() - StartTime > 100.0)
+		{
+			AddError(TEXT("L'animation de la serre ne se termine pas"));
+			return true;
+		}
+		return false;
+	}));
+
+	// 7) Fond de la serre puis écran de fin
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Character, Exit]()
 	{
 		NFSmoke::Teleport(Character, Exit->GetActorLocation());
@@ -295,7 +351,7 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 			AddInfo(TEXT("Niveau terminé"));
 			return true;
 		}
-		if (FPlatformTime::Seconds() - StartTime > 70.0)
+		if (FPlatformTime::Seconds() - StartTime > 110.0)
 		{
 			AddError(TEXT("La zone de sortie n'a pas détecté le joueur"));
 			return true;
@@ -310,7 +366,7 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 			PC->CloseOverlays();
 			return true;
 		}
-		if (FPlatformTime::Seconds() - StartTime > 80.0)
+		if (FPlatformTime::Seconds() - StartTime > 120.0)
 		{
 			AddError(TEXT("L'écran de fin ne s'est pas affiché"));
 			return true;
@@ -394,6 +450,8 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 	{
 		NFSmoke::Teleport(Character, FVector(-650.f, 300.f, 100.f));
 		NFSmoke::LookAt(Character, FVector(950.f, 0.f, 420.f));
+		// Un bon modèle (5 neurones ReLU), pour que la suite (pot, serre) montre un modèle validé
+		Builder->SetConfiguration({ { 5, ENFActivation::ReLU } }, 2);
 		Builder->GetTrainer()->EpochsPerSecond = 2.f;
 		Builder->StartTraining();
 		return true;
@@ -440,6 +498,45 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.5f));
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(TEXT("PotFane"))));
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.3f));
+
+	// La serre : le joueur entre une fois le modèle validé, les plantes poussent ou fanent
+	const double SerreStart = FPlatformTime::Seconds();
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Builder, SerreStart]()
+	{
+		return Builder->GetTrainingState() == ENFTrainingState::Succeeded || FPlatformTime::Seconds() - SerreStart > 30.0;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([World, Character]()
+	{
+		if (ANFGreenhouse* Greenhouse = NFSmoke::FindActor<ANFGreenhouse>(World))
+		{
+			NFSmoke::Teleport(Character, Greenhouse->GetActorLocation() + FVector(-60.f, 0.f, 100.f));
+			NFSmoke::LookAt(Character, FVector(3500.f, 0.f, 150.f));
+		}
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(TEXT("SerreVague"))));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(9.f));
+	const TArray<FView> GreenhouseViews = {
+		{ TEXT("SerreBilan"), FVector(2340.f, 0.f, 100.f), FVector(2800.f, 0.f, 290.f) },
+		{ TEXT("SerreApresAnimation"), FVector(2560.f, -720.f, 100.f), FVector(3600.f, 0.f, 40.f) },
+		{ TEXT("SerreAllee"), FVector(3120.f, 0.f, 100.f), FVector(3700.f, 250.f, 30.f) },
+		{ TEXT("SerreFond"), FVector(4250.f, 650.f, 100.f), FVector(3200.f, -200.f, 80.f) },
+	};
+	for (const FView& View : GreenhouseViews)
+	{
+		const FVector Location = View.Location;
+		const FVector Target = View.LookAt;
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Character, Location, Target]()
+		{
+			NFSmoke::Teleport(Character, Location);
+			NFSmoke::LookAt(Character, Target);
+			return true;
+		}));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.5f));
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(View.Name)));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+	}
 
 	// Écran de fin
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC]() { PC->HandleLevelCompleted(); return true; }));

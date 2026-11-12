@@ -443,6 +443,38 @@ def create_lab_materials(materials):
     return materials
 
 
+# --- Serre -----------------------------------------------------------------
+
+def create_greenhouse_materials(materials):
+    """Materials de la serre : verre éclairé, sol, bacs, lampes de culture, gouttes et lucioles."""
+    surface = eal.load_asset(MATERIALS + "/M_NF_Surface")
+    highlight = eal.load_asset(MATERIALS + "/M_NF_Highlight")
+
+    def surface_mi(name, color, metallic, roughness, emissive=(0, 0, 0, 1), strength=0.0):
+        return create_material_instance(name, surface, vectors={"BaseColor": color, "EmissiveColor": emissive},
+                                        scalars={"Metallic": metallic, "Roughness": roughness, "EmissiveStrength": strength})
+
+    def glow_mi(name, color, glow):
+        return create_material_instance(name, highlight, vectors={"BaseColor": color, "EmissiveColor": color},
+                                        scalars={"BaseGlow": glow, "HighlightBoost": 0.0, "Metallic": 0.0, "Roughness": 0.3})
+
+    # Vitres : lumière douce du soir qui traverse le verre
+    # Vitres : ciel bleu du crépuscule derrière le verre, en contraste avec la lumière chaude des lampes
+    materials["GreenhouseGlass"] = surface_mi("MI_NF_GreenhouseGlass", (0.015, 0.025, 0.04, 1), 0.3, 0.08,
+                                              (0.18, 0.28, 0.55, 1), 0.12)
+    materials["GreenhouseFrame"] = surface_mi("MI_NF_GreenhouseFrame", (0.30, 0.31, 0.29, 1), 0.6, 0.4)
+    materials["GreenhouseFloor"] = surface_mi("MI_NF_GreenhouseFloor", (0.06, 0.045, 0.03, 1), 0.0, 0.85)
+    materials["GreenhouseBed"] = surface_mi("MI_NF_GreenhouseBed", (0.03, 0.02, 0.012, 1), 0.0, 0.95)
+    materials["GreenhouseSign"] = surface_mi("MI_NF_GreenhouseSign", (0.14, 0.08, 0.04, 1), 0.0, 0.7)
+    materials["GreenhouseBoard"] = surface_mi("MI_NF_GreenhouseBoard", (0.012, 0.025, 0.018, 1), 0.0, 0.9)
+    for level in (0, 2, 4, 6, 8, 10):
+        materials["GrowLamp{}".format(level)] = surface_mi("MI_NF_GrowLamp_{}".format(level), (0.1, 0.1, 0.1, 1), 0.5, 0.4,
+                                                           (1.0, 0.78, 0.5, 1), 0.45 * level)
+    materials["WaterDrop"] = glow_mi("MI_NF_WaterDrop", (0.35, 0.7, 1.0, 1), 1.5)
+    materials["Firefly"] = glow_mi("MI_NF_Firefly", (1.0, 0.78, 0.25, 1), 8.0)
+    return materials
+
+
 # --- Mains de chercheur --------------------------------------------------------
 
 # Poignet et coude gauches du mannequin en pose de référence (mesurés avec nf_inspect_arms.py)
@@ -558,6 +590,9 @@ def import_sounds():
         sound = eal.load_asset("{}/{}".format(AUDIO, name))
         if sound is None:
             raise RuntimeError("Import du son impossible : " + name)
+        if name in nf_audio.LOOPING:
+            sound.set_editor_property("looping", True)
+            eal.save_loaded_asset(sound)
         sounds[name] = sound
     return sounds
 

@@ -64,7 +64,7 @@ void SNFEndScreenWidget::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("Subtitle", "Votre modèle sait prédire si une plante survit : la porte du laboratoire s'est ouverte."))
+						.Text(LOCTEXT("Subtitle", "Votre modèle sait prédire si une plante survit : il a fait pousser la serre du labo."))
 						.Font(NFUI::Font(16)).ColorAndOpacity(NFUI::Muted)
 					]
 
@@ -254,7 +254,7 @@ void SNFObjectivesWidget::Construct(const FArguments& InArgs)
 					return FText::Format(LOCTEXT("ObjValidate", "Atteindre {0} % de réussite"), FText::AsNumber(FMath::RoundToInt32(Target * 100.f)));
 				}))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::TestPlant, LOCTEXT("ObjTest", "Tester le modèle sur une plante"))]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Greenhouse, LOCTEXT("ObjGreenhouse", "Voir le modèle à l'œuvre dans la serre"))]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Greenhouse, LOCTEXT("ObjGreenhouse", "Voir la serre pousser"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Exit, LOCTEXT("ObjExit", "Rejoindre le fond de la serre"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)
 				[

@@ -3,13 +3,13 @@
 Plan (vue de dessus, cm). Le joueur entre côté -X et regarde vers +X (sa gauche = -Y).
 
   Y=+1500 ┌────────────── passerelle + baies de serveurs ──────────────┐
-          │  [Mode d'emploi]                  [Levier]                 │
-          │                   [Bouton sol] [FORGE]   [HOLOGRAMME]      ├──────┐
-  spawn ● │                                                     Porte  Sortie │
-          │       ATELIER : [modules] [orbes] [cristaux]               ├──────┘
-          │                                          [Écran d'état]    │
+          │  [Mode d'emploi]                  [Levier]                 ├──────── SERRE ────────┐
+          │                   [Bouton sol] [FORGE]   [HOLOGRAMME]      │   lumière 10  ...     │
+  spawn ● │                                                     Porte  [Bilan] plantes 6x6 Sortie
+          │       ATELIER : [modules] [orbes] [cristaux]               │   lumière 0   ...     │
+          │                                          [Écran d'état]    ├── eau 0 ... eau 10 ───┘
   Y=-1500 └────────────── passerelle + baies de serveurs ──────────────┘
-        X=-2250                                                    X=2250   X=2850
+        X=-2250                                                    X=2250                 X=4600
 
 Le niveau est entièrement recréé à chaque exécution.
 """
@@ -29,7 +29,13 @@ HALL_HEIGHT = 1000.0
 WALL = 30.0
 
 DOOR_WIDTH, DOOR_HEIGHT, DOOR_FRAME = 240.0, 300.0, 25.0
-CORRIDOR_END_X, CORRIDOR_HALF_Y, CORRIDOR_HEIGHT = 2850.0, 220.0, 420.0
+# Serre derrière la porte : 36 plantes, eau croissante le long de X, lumière croissante le long de Y
+GREENHOUSE_MAX_X, GREENHOUSE_HALF_Y, GREENHOUSE_HEIGHT = 4600.0, 950.0, 650.0
+GREENHOUSE_VALUES = (0, 2, 4, 6, 8, 10)
+GRID_X0, GRID_Y0, GRID_STEP = 3000.0, -575.0, 230.0
+GREENHOUSE_ENTRANCE_X = 2420.0
+BOARD_X = 2800.0
+EXIT_X = 4420.0
 
 FORGE_X = 0.0
 HOLO_X = 950.0
@@ -173,17 +179,6 @@ def build_hall(mats):
     lintel = HALL_HEIGHT - (DOOR_HEIGHT + DOOR_FRAME)
     _box("Mur_Porte_Linteau", (wall_x, 0, HALL_HEIGHT - lintel / 2), (WALL, 2 * opening, lintel), wall)
 
-    # Couloir de sortie
-    start = HALL_MAX_X + WALL
-    corridor_len = CORRIDOR_END_X - start
-    corridor_x = start + corridor_len / 2
-    cw = 2 * CORRIDOR_HALF_Y
-    _box("Couloir_Sol", (corridor_x, 0, -WALL / 2), (corridor_len, cw + 2 * WALL, WALL), floor, "Couloir")
-    _box("Couloir_Plafond", (corridor_x, 0, CORRIDOR_HEIGHT + WALL / 2), (corridor_len, cw + 2 * WALL, WALL), ceiling, "Couloir")
-    _box("Couloir_Mur_Nord", (corridor_x, CORRIDOR_HALF_Y + WALL / 2, CORRIDOR_HEIGHT / 2), (corridor_len, WALL, CORRIDOR_HEIGHT), wall, "Couloir")
-    _box("Couloir_Mur_Sud", (corridor_x, -CORRIDOR_HALF_Y - WALL / 2, CORRIDOR_HEIGHT / 2), (corridor_len, WALL, CORRIDOR_HEIGHT), wall, "Couloir")
-    _box("Couloir_Fond", (CORRIDOR_END_X + WALL / 2, 0, CORRIDOR_HEIGHT / 2), (WALL, cw + 2 * WALL, CORRIDOR_HEIGHT), wall, "Couloir")
-
     # Bandeaux lumineux au plafond
     for i, x in enumerate((-1700, -850, 0, 850, 1700)):
         for j, y in enumerate((-900, 0, 900)):
@@ -239,7 +234,6 @@ def build_lighting():
     for i, x in enumerate((-1700, -850, 0, 850, 1700)):
         for j, y in enumerate((-900, 900)):
             _point_light("Lumiere_{}_{}".format(i, j), (x, y, HALL_HEIGHT - 60), 2600.0, 1700.0, shadows=(i % 2 == 0))
-    _point_light("Lumiere_Couloir", (2550, 0, CORRIDOR_HEIGHT - 40), 1800.0, 800.0, color=(0.75, 1.0, 0.8))
 
     _spot_light("Spot_Forge", (FORGE_X - 150, 0, HALL_HEIGHT - 10), -80.0, 4000.0, 1500.0, 30.0, 48.0, (0.85, 0.95, 1.0))
     _spot_light("Spot_Hologramme", (HOLO_X, 0, HALL_HEIGHT - 10), -90.0, 5000.0, 1500.0, 25.0, 40.0, (0.6, 0.85, 1.0), mood=True)
@@ -340,7 +334,9 @@ def build_gameplay(blueprints, mats, sounds):
     door = _spawn(blueprints["LabDoor"].generated_class(), (HALL_MAX_X + WALL / 2, 0, 0), FACE_PLAYER, "PorteLabo", "Gameplay")
     door.set_editor_property("builder", builder)
 
-    _spawn(blueprints["ExitTrigger"].generated_class(), (2550, 0, 150), FACE_PLAYER, "Sortie", "Gameplay")
+    exit_trigger = _spawn(blueprints["ExitTrigger"].generated_class(), (EXIT_X, 0, 150), FACE_PLAYER, "Sortie", "Gameplay")
+    # Sortie au fond de la serre, sur toute la largeur
+    exit_trigger.get_editor_property("trigger").set_box_extent(_vec(100, GREENHOUSE_HALF_Y - 30, 150), True)
     _spawn(unreal.PlayerStart, (HALL_MIN_X + 250, 0, 100), 0.0, "PlayerStart", "Gameplay")
 
     _text("Titre", (HALL_MAX_X - 3, 0, 495), "NEURON FORGE", 60, (140, 220, 255))
@@ -452,6 +448,145 @@ def build_holograms(mats, builder):
     ambience.set_editor_property("mood_collection", mats["MoodCollection"])
 
 
+# --- La serre ----------------------------------------------------------------
+
+def _grid_x(i):
+    return GRID_X0 + i * GRID_STEP
+
+
+def _grid_y(j):
+    return GRID_Y0 + j * GRID_STEP
+
+
+def _sign(label, location, text, size, mats, width, height=34.0):
+    """Petit panneau en bois sur un piquet, lisible depuis l'entrée."""
+    x, y, z = location
+    _box(label + "_Panneau", (x + 4, y, z), (4, width, height), mats["GreenhouseSign"], "Serre/Panneaux")
+    _box(label + "_Piquet", (x + 6, y, z / 2), (5, 5, z), mats["GreenhouseFrame"], "Serre/Panneaux")
+    _text(label, (x, y, z), text, size, (255, 240, 205), folder="Serre/Panneaux")
+
+
+def build_greenhouse_structure(mats):
+    """Sol, verrière et armature blanche de la serre, derrière la porte du labo."""
+    glass, frame = mats["GreenhouseGlass"], mats["GreenhouseFrame"]
+    start = HALL_MAX_X + WALL
+    length = GREENHOUSE_MAX_X - start
+    cx = start + length / 2
+    half, height = GREENHOUSE_HALF_Y, GREENHOUSE_HEIGHT
+    folder = "Serre/Structure"
+
+    _box("Serre_Sol", (cx, 0, -WALL / 2), (length, 2 * half + 2 * WALL, WALL), mats["GreenhouseFloor"], folder)
+    _box("Serre_Verriere", (cx, 0, height + WALL / 2), (length, 2 * half + 2 * WALL, WALL), glass, folder)
+    _box("Serre_Mur_Nord", (cx, half + WALL / 2, height / 2), (length, WALL, height), glass, folder)
+    _box("Serre_Mur_Sud", (cx, -half - WALL / 2, height / 2), (length, WALL, height), glass, folder)
+    _box("Serre_Mur_Fond", (GREENHOUSE_MAX_X + WALL / 2, 0, height / 2), (WALL, 2 * half + 2 * WALL, height), glass, folder)
+
+    k = 0
+    x = start + 120
+    while x < GREENHOUSE_MAX_X:
+        for side in (1, -1):
+            _box("Montant_{}_{}".format(k, side), (x, side * (half - 7), height / 2), (12, 12, height), frame, folder)
+        _box("Poutre_{}".format(k), (x, 0, height - 8), (12, 2 * half, 14), frame, folder)
+        x += 290
+        k += 1
+    for y in (-570, -190, 190, 570):
+        _box("Montant_Fond_{}".format(int(y)), (GREENHOUSE_MAX_X - 7, y, height / 2), (12, 12, height), frame, folder)
+    for z in (300, height - 8):
+        for side in (1, -1):
+            _box("Traverse_{}_{}".format(int(z), side), (cx, side * (half - 7), z), (length, 10, 10), frame, folder)
+        _box("Traverse_Fond_{}".format(int(z)), (GREENHOUSE_MAX_X - 7, 0, z), (10, 2 * half, 10), frame, folder)
+    _box("Faitage", (cx, 0, height - 8), (length, 14, 14), frame, folder)
+
+
+def build_greenhouse_beds(mats):
+    """36 plantes en grille 6 x 6, rampes d'arrosage, lampes de culture et panneaux. Renvoie les plantes."""
+    plants = []
+    grid_len = (len(GREENHOUSE_VALUES) - 1) * GRID_STEP
+    grid_cx = GRID_X0 + grid_len / 2
+
+    for i, water in enumerate(GREENHOUSE_VALUES):
+        x = _grid_x(i)
+        # Bac de la rangée et rampe d'arrosage : d'autant plus de gouttes que l'eau est forte
+        _box("Bac_Eau_{}".format(water), (x, 0, 3), (110, grid_len + 150, 6), mats["GreenhouseBed"], "Serre/Bacs")
+        sprinkler = _spawn(unreal.NFSprinklerRow, (x, 0, 250), 0.0, "Arrosage_Eau_{}".format(water), "Serre/Arrosage")
+        sprinkler.set_editor_property("water", float(water))
+        sprinkler.set_editor_property("length", grid_len + 150)
+        sprinkler.set_editor_property("drop_height", 205.0)
+        sprinkler.set_editor_property("pipe_material", mats["GreenhouseFrame"])
+        sprinkler.set_editor_property("drop_material", mats["WaterDrop"])
+        for side in (1, -1):
+            _sign("Panneau_Eau_{}_{}".format(water, side), (x - 30, side * (GRID_STEP * 3 + 100), 95),
+                  "Eau {}".format(water), 16, mats, 80)
+
+        for j, light in enumerate(GREENHOUSE_VALUES):
+            plant = _spawn(unreal.NFGreenhousePlant, (x, _grid_y(j), 6), (i * 37 + j * 53) % 360,
+                           "Plante_Eau{}_Lumiere{}".format(water, light), "Serre/Plantes")
+            plant.set_editor_property("water", float(water))
+            plant.set_editor_property("light", float(light))
+            plant.set_editor_property("plant_material", mats["Plant"])
+            plant.set_editor_property("pot_material", mats["PotBody"])
+            plants.append(plant)
+
+    for j, light in enumerate(GREENHOUSE_VALUES):
+        y = _grid_y(j)
+        # Lampe de culture de la colonne : d'autant plus brillante que la lumière est forte
+        _box("Lampe_Lumiere_{}".format(light), (grid_cx, y, 360), (grid_len + 150, 26, 8),
+             mats["GrowLamp{}".format(light)], "Serre/Lampes")
+        _box("Lampe_Boitier_{}".format(light), (grid_cx, y, 368), (grid_len + 160, 34, 8), mats["GreenhouseFrame"], "Serre/Lampes")
+        for side in (1, -1):
+            _box("Lampe_Suspente_{}_{}".format(light, side), (grid_cx + side * grid_len / 2, y, (372 + GREENHOUSE_HEIGHT) / 2),
+                 (3, 3, GREENHOUSE_HEIGHT - 372), mats["GreenhouseFrame"], "Serre/Lampes")
+        if light > 0:
+            for k, lx in enumerate((grid_cx - grid_len / 3, grid_cx + grid_len / 3)):
+                _point_light("Lumiere_Culture_{}_{}".format(light, k), (lx, y, 330), 110.0 * light, 480.0,
+                             (1.0, 0.8, 0.55), shadows=False, mood=False)
+        _sign("Panneau_Lumiere_{}".format(light), (GRID_X0 - 140, y, 60), "Lumière {}".format(light), 13, mats, 105)
+
+    _text("Legende_Eau", (GRID_X0 - 150, 0, 140), "Arrosage : de 0 (devant) à 10 (au fond)", 15, (190, 225, 255),
+          folder="Serre/Panneaux")
+    _text("Legende_Lumiere", (GRID_X0 - 150, 0, 118), "Lumière : de 0 (à gauche) à 10 (à droite)", 15, (255, 225, 150),
+          folder="Serre/Panneaux")
+    return plants
+
+
+def build_greenhouse(mats, sounds, builder):
+    """La serre : le modèle entraîné décide du sort des 36 plantes quand le joueur entre."""
+    build_greenhouse_structure(mats)
+    plants = build_greenhouse_beds(mats)
+
+    # Gestionnaire à l'entrée : trigger dans l'embrasure, panneau du bilan suspendu devant les plantes
+    greenhouse = _spawn(unreal.NFGreenhouse, (GREENHOUSE_ENTRANCE_X, 0, 0), FACE_PLAYER, "Serre", "Serre")
+    greenhouse.set_editor_property("builder", builder)
+    greenhouse.set_editor_property("plants", plants)
+    if "S_NF_Greenhouse" in sounds:
+        greenhouse.set_editor_property("ambient_sound", sounds["S_NF_Greenhouse"])
+    if "S_NF_Grow" in sounds:
+        greenhouse.set_editor_property("grow_sound", sounds["S_NF_Grow"])
+    offset = -(BOARD_X - GREENHOUSE_ENTRANCE_X)  # yaw 180 : le -X local pointe vers le fond
+    # Tableau noir suspendu, bas du tableau à 2,4 m : lisible depuis la porte sans lever la tête
+    greenhouse.get_editor_property("board_title").set_relative_location(_vec(offset, 0, 350), False, False)
+    greenhouse.get_editor_property("board_text").set_relative_location(_vec(offset, 0, 290), False, False)
+    _box("Panneau_Bilan", (BOARD_X + 6, 0, 310), (4, 560, 140), mats["GreenhouseBoard"], "Serre")
+    _box("Panneau_Bilan_Cadre", (BOARD_X + 9, 0, 310), (2, 580, 156), mats["GreenhouseSign"], "Serre")
+    for side in (1, -1):
+        _box("Panneau_Bilan_Chaine_{}".format(side), (BOARD_X + 6, side * 250, (380 + GREENHOUSE_HEIGHT) / 2),
+             (3, 3, GREENHOUSE_HEIGHT - 380), mats["GreenhouseFrame"], "Serre")
+
+    fireflies = _spawn(unreal.NFFireflies, (3550, 0, 210), 0.0, "Lucioles", "Serre")
+    fireflies.set_editor_property("count", 70)
+    fireflies.set_editor_property("extent", _vec(950, 800, 140))
+    fireflies.set_editor_property("glow_material", mats["Firefly"])
+
+    # Lumière chaude du soir (indépendante de l'ambiance du labo)
+    for i, x in enumerate((2700, 3450, 4200)):
+        for j, y in enumerate((-480, 480)):
+            _point_light("Lumiere_Serre_{}_{}".format(i, j), (x, y, GREENHOUSE_HEIGHT - 70), 1500.0, 1500.0,
+                         (1.0, 0.76, 0.5), shadows=(i == 1), mood=False)
+    _spot_light("Spot_Bilan", (2450, 0, 600), -30.0, 500.0, 900.0, 20.0, 35.0, (1.0, 0.85, 0.65))
+    _text("Sortie_Fond", (EXIT_X + 150, 0, 330), "Fin de la visite", 22, (150, 255, 170), folder="Serre/Panneaux")
+    return greenhouse
+
+
 def build_level(blueprints, mats, sounds=None):
     """Recrée L_Lab, construit tout le hall et l'enregistre."""
     if eal.does_asset_exist(LEVEL_PATH):
@@ -466,6 +601,7 @@ def build_level(blueprints, mats, sounds=None):
     build_workshop(mats)
     build_help_panel(mats)
     build_holograms(mats, builder)
+    build_greenhouse(mats, sounds or {}, builder)
 
     world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
     world.get_world_settings().set_editor_property("default_game_mode", blueprints["GameMode"].generated_class())

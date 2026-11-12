@@ -140,6 +140,27 @@ for class_name in ["BP_NF_FloorButton_C", "BP_NF_StatusDisplay_C", "BP_NF_LabDoo
         check(class_name + " pointe vers l'holotable", found[0].get_editor_property("builder") == builder)
 
 check("1 zone de sortie", len(of_class("BP_NF_ExitTrigger_C")) == 1)
+exits = of_class("BP_NF_ExitTrigger_C")
+if exits:
+    check("La sortie est au fond de la serre", exits[0].get_actor_location().x > 4000, exits[0].get_actor_location().x)
+greenhouses = of_class("NFGreenhouse")
+check("1 serre", len(greenhouses) == 1, len(greenhouses))
+plants = of_class("NFGreenhousePlant")
+check("36 plantes dans la serre", len(plants) == 36, len(plants))
+grid = sorted((p.get_editor_property("water"), p.get_editor_property("light")) for p in plants)
+check("Grille eau x lumière 0..10 par pas de 2",
+      grid == sorted((float(w), float(l)) for w in range(0, 11, 2) for l in range(0, 11, 2)))
+if greenhouses:
+    gh = greenhouses[0]
+    check("La serre pointe vers l'holotable", gh.get_editor_property("builder") == builder)
+    check("La serre connaît ses 36 plantes", len(gh.get_editor_property("plants")) == 36)
+    check("Ambiance de la serre en boucle", gh.get_editor_property("ambient_sound") is not None
+          and gh.get_editor_property("ambient_sound").get_editor_property("looping"))
+    check("Son de pousse", asset_name(gh.get_editor_property("grow_sound")) == "S_NF_Grow")
+sprinklers = of_class("NFSprinklerRow")
+check("6 rampes d'arrosage", len(sprinklers) == 6, len(sprinklers))
+check("1 essaim de lucioles", len(of_class("NFFireflies")) == 1)
+check("Plus de couloir", not [a for a in actors if a.get_actor_label().startswith("Couloir")])
 check("1 PlayerStart", len(of_class("PlayerStart")) == 1)
 check("Lumières présentes", len(of_class("PointLight")) >= 8, len(of_class("PointLight")))
 

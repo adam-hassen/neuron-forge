@@ -349,11 +349,11 @@ TSharedRef<SWidget> SNFIntroWidget::BuildWelcomePage()
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 18.f, 0.f, 0.f)
 				[
-					MakeSwatch(NFUI::Success, LOCTEXT("Reward1", "Récompense : la porte du labo s'ouvre"))
+					MakeSwatch(NFUI::Success, LOCTEXT("Reward1", "Récompense : la porte de la serre s'ouvre"))
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)
 				[
-					MakeSwatch(NFUI::Warning, LOCTEXT("Reward2", "Ensuite : testez votre modèle sur une vraie plante"))
+					MakeSwatch(NFUI::Warning, LOCTEXT("Reward2", "Ensuite : votre modèle fait pousser les 36 plantes de la serre"))
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)
 				[
@@ -487,8 +487,8 @@ TSharedRef<SWidget> SNFIntroWidget::BuildMissionPage()
 			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(14.f, 0.f, 0.f, 0.f)
 			[
 				MakeStepCard(3, LOCTEXT("Step3Title", "Valider et tester"),
-					LOCTEXT("Step3Body", "À 95 % de bonnes prédictions, la porte s'ouvre. Testez alors votre modèle sur le pot de "
-						"plante : réglez l'arrosage et la lampe. Échec ? Lisez le conseil de l'écran d'état et réessayez."), NFUI::Success)
+					LOCTEXT("Step3Body", "À 95 % de bonnes prédictions, la porte s'ouvre. Testez votre modèle sur le pot de plante, puis "
+						"entrez dans la serre : il décide quelles plantes poussent. Échec ? Lisez le conseil et réessayez."), NFUI::Success)
 			]
 		];
 }

@@ -68,7 +68,8 @@ Le dataset **XOR** (4 exemples) reste dans le code : il sert aux tests automatis
    - le **carnet du labo** affiche les 160 plantes (points verts : survie, rouges : mort) et colore en direct la zone où le modèle pense que la plante survit ; la limite trouvée est surlignée en jaune et les erreurs sont entourées de blanc.
 6. **Validation** : à 95 % de bonnes prédictions, un **son de validation** retentit et la **porte du labo s'ouvre** avec une animation. Sinon, le joueur modifie son architecture et réessaie.
 7. **Phase de test** : près de la porte, un **pot de plante** s'active. Le joueur règle l'**arrosage** et la **lampe** (0 à 10) ; le modèle prédit la survie et la plante se redresse et verdit, ou se penche et brunit. La probabilité s'affiche, ainsi que la réponse de la vraie serre (« le modèle a raison » / « le modèle se trompe »).
-8. **Sortie** : franchir la porte déclenche l'écran « Mission accomplie » : bilan (architecture, réussite, tours d'entraînement, essais, durée), leçon à retenir, boutons Rejouer / Quitter.
+8. **La serre** : la porte ouvre sur une vraie serre de 23 × 19 m, sous une verrière au crépuscule. **36 plantes** y sont rangées en grille 6 × 6 : l'arrosage augmente vers le fond (rampes de plus en plus fournies en gouttes, panneaux « Eau 0 » à « Eau 10 ») et la lumière augmente de gauche à droite (lampes de culture de plus en plus brillantes, panneaux « Lumière 0 » à « Lumière 10 »). Dès que le joueur entre, le modèle entraîné décide du sort de chaque plante : en vague depuis l'entrée, les plantes prédites vivantes poussent et fleurissent, les autres fanent et se courbent. Un tableau suspendu affiche le bilan : « Ton modèle a fait pousser X plantes sur 36. Il s'est trompé sur Z plantes. » Lumière chaude, lucioles et ambiance sonore en boucle (brise, gazouillis).
+9. **Fin** : rejoindre le fond de la serre déclenche l'écran « Mission accomplie » : bilan (architecture, réussite, tours d'entraînement, essais, durée), leçon à retenir, boutons Rejouer / Quitter.
 
 | Briefing : la serre | Briefing : la mission | Écran de fin |
 |:---:|:---:|:---:|
@@ -90,6 +91,10 @@ Le dataset **XOR** (4 exemples) reste dans le code : il sert aux tests automatis
 
 ![Mains du chercheur](Docs/Images/NF_Mains.png)
 
+**La serre après l'animation** : le modèle 5 ReLU a fait pousser 6 plantes sur 36 et s'est trompé sur 2 (8 survivent dans la vraie serre).
+
+![La serre](Docs/Images/NF_Serre.png)
+
 **Contrôles (PC)** : `ZQSD`/`WASD` pour se déplacer, la souris pour regarder, `Espace` pour sauter, `E` ou clic gauche pour interagir avec l'objet visé. `H` ou `F1` pour revoir le briefing. À la manette : stick gauche/droit, `A` pour sauter, `X` pour interagir.
 
 L'objet visé est mis en surbrillance et le réticule affiche l'action possible : « [E] Prendre : orbe-neurone », puis, la pièce en main, « [E] Insérer orbe-neurone dans le module » quand un emplacement compatible est à portée (réticule vert).
@@ -100,7 +105,7 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible 
 
 | Notion | Utilisation dans Neuron Forge |
 |---|---|
-| **Trigger Box Collision** | Le bouton au sol détecte le joueur par overlap pour lancer l'entraînement ; une zone de fin de niveau détecte la sortie du labo. |
+| **Trigger Box Collision** | Le bouton au sol détecte le joueur par overlap pour lancer l'entraînement ; l'entrée de la serre déclenche les prédictions ; une zone de fin de niveau détecte l'arrivée au fond de la serre. |
 | **Porte animée** | La porte du labo s'ouvre via une timeline (courbe d'animation) en C++ lorsque la précision cible est atteinte. |
 | **Bouton au sol** | Plaque de pression qui s'enfonce et s'illumine quand le joueur marche dessus, puis démarre l'entraînement. |
 | **Text Render** | Affichage dans le monde 3D de la mission, du bilan de l'entraînement, des légendes du carnet du labo, des réglages et du verdict du pot de plante. |
@@ -254,7 +259,7 @@ Le rapport est écrit dans `Saved/nf_build_report.txt`. `nf_validate_content.py`
 | `nf_build_all.py` | Point d'entrée : sons → materials → Blueprints → niveau `L_Lab`, avec rapport. |
 | `nf_audio.py` | Synthèse des 7 effets sonores en Python pur (WAV dans `RawAssets/Audio/`) : validation (arpège do-mi-sol-do), clic, bouton au sol, lancement, échec, porte, fin de niveau. |
 | `nf_assets.py` | Materials (`M_NF_Instanced` lu par instance, `M_NF_Highlight` avec paramètre `Highlight`, `M_NF_Surface`) et leurs instances ; décor animé (`MPC_NF_Lab`, `M_NF_Trim` liserés d'ambiance, `M_NF_FloorGrid` grille lumineuse, `M_NF_ServerLEDs` LED aléatoires, `M_NF_Holo` anneaux holographiques) ; import des sons ; Blueprints enfants `BP_NF_*` avec materials et sons assignés. |
-| `nf_level.py` | Construction du niveau `L_Lab`, un grand hall de 45 × 30 m sur 10 m de haut : atelier (3 établis garnis de 4 modules, 20 orbes et 8 cristaux), Forge et levier, hologramme géant, bouton au sol, écran d'état, panneau « mode d'emploi », porte, couloir et zone de sortie ; passerelles, piliers, liserés, baies de serveurs, hologrammes animés ; éclairage d'ambiance, projecteurs, brume volumétrique et acteur d'ambiance. |
+| `nf_level.py` | Construction du niveau `L_Lab`, un grand hall de 45 × 30 m sur 10 m de haut : atelier (3 établis garnis de 4 modules, 20 orbes et 8 cristaux), Forge et levier, hologramme géant, bouton au sol, écran d'état, panneau « mode d'emploi », porte ; la serre (verrière, 36 plantes en grille 6 × 6, rampes d'arrosage, lampes de culture, panneaux, tableau du bilan, lucioles) et la zone de sortie au fond ; passerelles, piliers, liserés, baies de serveurs, hologrammes animés ; éclairage d'ambiance, projecteurs, brume volumétrique et acteur d'ambiance. |
 | `nf_validate_content.py` | Contrôle du contenu enregistré : materials et sons des Blueprints, acteurs du niveau (Forge, levier, 4 modules, 20 orbes, 8 cristaux) et leurs références, GameMode. |
 | `nf_check_env.py` | Vérifie que Python fonctionne, que les classes C++ du jeu sont chargées et que le personnage a bien récupéré les assets du template (rapport dans `Saved/nf_check_env.txt`). |
 | `nf_dump_template.py` | Inventaire des Blueprints du template First Person : composants, assets, réglages et mappings d'entrée (rapport dans `Saved/nf_dump_template.txt`). |
@@ -293,13 +298,13 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `Lab.ForgeAssembly` | Puzzle de la Forge : module vide ignoré, orbes = neurones, cristal = activation, emboîtement par proximité, types incompatibles refusés, prise en main d'une pièce emboîtée, verrouillage pendant l'entraînement. |
 | `Lab.LinearModelKeepsDoorClosed` | Sans couche cachée : échec, porte fermée, conseil « Ajoutez une couche », configuration de nouveau modifiable. |
 
-**Test de fumée du niveau réel** (`Smoke.LabPlaythrough`, contexte jeu uniquement) : il lance le jeu sur `L_Lab` et rejoue le parcours du joueur : briefing, module attrapé en le visant puis inséré dans la fente 1, 4 orbes et un cristal Tanh emboîtés, tour complet du levier, bouton au sol, validation du modèle, ouverture de la porte, sortie et écran de fin. Résultat actuel : modèle validé en 57 epochs, porte ouverte en 2,1 s.
+**Test de fumée du niveau réel** (`Smoke.LabPlaythrough`, contexte jeu uniquement) : il lance le jeu sur `L_Lab` et rejoue le parcours du joueur : briefing, module attrapé en le visant puis inséré dans la fente 1, 4 orbes et un cristal Tanh emboîtés, tour complet du levier, bouton au sol, validation du modèle, ouverture de la porte, réglage de l'arrosage du pot, entrée dans la serre (36 plantes, bilan affiché, au plus 4 erreurs, animation terminée), arrivée au fond de la serre et écran de fin. Résultat actuel : porte ouverte en 16 s (16 epochs), 6 plantes poussées sur 36, 2 erreurs.
 
 ```bat
 "<UE_5.6>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "<chemin>\ProjetNeuro.uproject" -game -nullrhi -nosound -ExecCmds="Automation RunTests NeuronForge.Smoke; Quit" -TestExit="Automation Test Queue Empty"
 ```
 
-**Captures de contrôle visuel** (`Smoke.Screenshots`) : il capture les 4 pages du briefing, 6 vues du labo au repos (entrée, holotable, console, mode d'emploi, porte, serveurs), une vue pendant l'entraînement et l'écran de fin dans `Saved/Screenshots/NF_*.png`. Il demande un vrai rendu : remplacer `-nullrhi` par `-RenderOffscreen -ResX=1280 -ResY=720` dans la commande ci-dessus.
+**Captures de contrôle visuel** (`Smoke.Screenshots`) : il capture les 4 pages du briefing, 6 vues du labo au repos (entrée, holotable, console, mode d'emploi, porte, serveurs), une vue pendant l'entraînement, le carnet, le pot sain et fané, 5 vues de la serre (vague, tableau du bilan, vue d'ensemble après l'animation, allée, fond) et l'écran de fin dans `Saved/Screenshots/NF_*.png`. Il demande un vrai rendu : remplacer `-nullrhi` par `-RenderOffscreen -ResX=1280 -ResY=720` dans la commande ci-dessus.
 
 ### Calibrage de la serre
 
@@ -359,6 +364,8 @@ Mesures du test `Greenhouse.Calibration` (même procédure d'entraînement que l
 | 10 | Carnet du labo (frontière de décision en direct) | ✅ Terminé |
 | 11 | Phase de test : le pot de plante | ✅ Terminé |
 | 12 | Textes, tests et README pour la serre | ✅ Terminé |
+| 13 | Mains de chercheur (peau, manches de blouse, gants en option) | ✅ Terminé |
+| 14 | La vraie serre derrière la porte : 36 plantes animées, bilan du modèle, ambiance | ✅ Terminé |
 
 ---
 
@@ -367,6 +374,7 @@ Mesures du test `Greenhouse.Calibration` (même procédure d'entraînement que l
 **Réalisé**
 - Niveau XOR jouable de bout en bout (MVP), puis Forge à pièces dans un grand hall.
 - Problème concret de la serre, carnet du labo avec frontière de décision en direct, phase de test sur un pot de plante.
+- Mains de chercheur à la première personne et vraie serre où le modèle fait pousser 36 plantes.
 
 **Après le MVP**
 - **Nouveaux niveaux et datasets** : spirales, plusieurs espèces de plantes (classification multi-classes), données réelles, chacun avec sa propre précision cible ; séparation apprentissage / test pour parler de sur-apprentissage.

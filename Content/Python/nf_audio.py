@@ -150,6 +150,59 @@ def level_complete():
     return _render(duration, gen)
 
 
+def greenhouse_ambience():
+    """Ambiance de la serre (boucle de 12 s) : brise douce, nappe chaude, quelques gazouillis."""
+    duration = 12.0
+    count = int(duration * SAMPLE_RATE)
+    fade = int(1.0 * SAMPLE_RATE)
+    rng = random.Random(2026)
+
+    # Brise : bruit filtré, rendu bouclable par fondu enchaîné entre la fin et le début
+    wind, state = [], 0.0
+    for _ in range(count + fade):
+        state += 0.02 * (rng.uniform(-1.0, 1.0) - state)
+        wind.append(state)
+    for i in range(fade):
+        a = i / fade
+        wind[i] = wind[i] * a + wind[count + i] * (1.0 - a)
+    wind = wind[:count]
+
+    # Fréquences arrondies pour un nombre entier de périodes sur la boucle
+    def looped(freq):
+        return round(freq * duration) / duration
+    pad = [looped(f) for f in (130.81, 164.81, 196.0, 261.63)]
+    chirps = [(1.4, 2600.0), (1.65, 2900.0), (4.3, 3300.0), (7.6, 2500.0), (7.82, 2750.0), (8.05, 3000.0), (10.2, 3500.0)]
+
+    def gen(t):
+        i = min(int(t * SAMPLE_RATE), count - 1)
+        breath = 0.6 + 0.4 * math.sin(2 * math.pi * t / 6.0)
+        value = 3.0 * wind[i] * breath
+        for k, freq in enumerate(pad):
+            value += 0.05 * math.sin(2 * math.pi * freq * t) * (0.7 + 0.3 * math.sin(2 * math.pi * t / (12.0 / (k + 1))))
+        for start, freq in chirps:
+            local = t - start
+            if 0.0 <= local < 0.12:
+                sweep = freq * (1.0 + 0.5 * local / 0.12)
+                value += 0.12 * math.sin(2 * math.pi * sweep * local) * math.sin(math.pi * local / 0.12)
+        return value
+    return _render(duration, gen)
+
+
+def grow():
+    """Pousse des plantes : glissando doux et montant (gamme pentatonique)."""
+    notes = [392.0, 440.0, 523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]
+    duration = 2.2
+
+    def gen(t):
+        value = 0.0
+        for k, freq in enumerate(notes):
+            local = t - 0.12 * k
+            if local >= 0:
+                value += 0.35 * _bell(freq, local) * math.exp(-local * 2.5)
+        return value * _envelope(t, duration, release=0.5)
+    return _render(duration, gen)
+
+
 SOUNDS = {
     "S_NF_Validation": validation,
     "S_NF_Click": click,
@@ -158,7 +211,12 @@ SOUNDS = {
     "S_NF_Failure": failure,
     "S_NF_DoorMove": door_move,
     "S_NF_LevelComplete": level_complete,
+    "S_NF_Greenhouse": greenhouse_ambience,
+    "S_NF_Grow": grow,
 }
+
+# Sons joués en boucle
+LOOPING = {"S_NF_Greenhouse"}
 
 
 def generate_all(output_dir):
