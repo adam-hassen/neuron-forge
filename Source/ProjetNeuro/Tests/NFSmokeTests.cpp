@@ -23,6 +23,7 @@
 #include "Lab/NFLever.h"
 #include "Lab/NFNetworkBuilder.h"
 #include "Lab/NFPiece.h"
+#include "Lab/NFPlantPot.h"
 #include "Misc/Paths.h"
 #include "Player/NFCharacter.h"
 #include "Player/NFHUD.h"
@@ -249,7 +250,35 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 		return false;
 	}));
 
-	// 5) Sortie puis écran de fin
+	// 5) Phase de test : régler l'arrosage du pot de plante en visant sa commande
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, World, Character]()
+	{
+		ANFPlantPot* Pot = NFSmoke::FindActor<ANFPlantPot>(World);
+		ANFPlantControl* WaterControl = nullptr;
+		for (TActorIterator<ANFPlantControl> It(World); It; ++It)
+		{
+			if (It->Setting == ENFPlantSetting::Water)
+			{
+				WaterControl = *It;
+			}
+		}
+		if (!TestNotNull(TEXT("Pot de plante"), Pot) || !TestNotNull(TEXT("Commande d'arrosage"), WaterControl))
+		{
+			return true;
+		}
+		TestTrue(TEXT("Le pot est actif après la validation"), Pot->IsUnlocked());
+		const int32 Before = Pot->GetValue(ENFPlantSetting::Water);
+		NFSmoke::Teleport(Character, WaterControl->GetActorLocation() + FVector(-170.f, 0.f, 45.f));
+		TestTrue(TEXT("Viser la commande d'arrosage et appuyer sur E"), NFSmoke::AimAndInteract(Character, WaterControl));
+		TestEqual(TEXT("L'arrosage augmente d'un cran"), Pot->GetValue(ENFPlantSetting::Water), (Before + 1) % 11);
+		TestTrue(TEXT("Le modèle prédit la survie de la plante"), Pot->GetPrediction() >= 0.f);
+		TestTrue(TEXT("Objectif « tester une plante » atteint"), Pot->HasBeenTested());
+		AddInfo(FString::Printf(TEXT("Pot : eau %d, lumière %d, survie prédite %.0f %%"), Pot->GetValue(ENFPlantSetting::Water),
+			Pot->GetValue(ENFPlantSetting::Light), Pot->GetPrediction() * 100.f));
+		return true;
+	}));
+
+	// 6) Sortie puis écran de fin
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Character, Exit]()
 	{
 		NFSmoke::Teleport(Character, Exit->GetActorLocation());
@@ -337,6 +366,7 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 		{ TEXT("Serveurs"), FVector(-900.f, 500.f, 100.f), FVector(-1500.f, 1500.f, 300.f) },
 		{ TEXT("Aide"), FVector(-1950.f, 700.f, 100.f), FVector(-1650.f, 700.f, 200.f) },
 		{ TEXT("Carnet"), FVector(150.f, 1080.f, 100.f), FVector(750.f, 1080.f, 360.f) },
+		{ TEXT("Pot"), FVector(1330.f, 520.f, 100.f), FVector(1750.f, 520.f, 170.f) },
 	};
 	for (const FView& View : Views)
 	{
@@ -378,6 +408,32 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(6.f));
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(TEXT("CarnetFin"))));
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+
+	// Pot après la validation : une plante en bonne santé puis une plante qui fane
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([World, Character]()
+	{
+		if (ANFPlantPot* Pot = NFSmoke::FindActor<ANFPlantPot>(World))
+		{
+			Pot->SetConditions(5, 6);
+		}
+		NFSmoke::Teleport(Character, FVector(1330.f, 520.f, 100.f));
+		NFSmoke::LookAt(Character, FVector(1750.f, 520.f, 170.f));
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(TEXT("PotSain"))));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.3f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([World]()
+	{
+		if (ANFPlantPot* Pot = NFSmoke::FindActor<ANFPlantPot>(World))
+		{
+			Pot->SetConditions(1, 9);
+		}
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(TEXT("PotFane"))));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.3f));
 
 	// Écran de fin
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC]() { PC->HandleLevelCompleted(); return true; }));

@@ -8,6 +8,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Lab/NFExitTrigger.h"
 #include "Lab/NFNetworkBuilder.h"
+#include "Lab/NFPlantPot.h"
 #include "Misc/CommandLine.h"
 #include "Player/NFHUD.h"
 #include "Player/NFPlayerCameraManager.h"
@@ -53,7 +54,8 @@ void ANFPlayerController::BeginPlay()
 	// Panneau d'objectifs permanent
 	ObjectivesWidget = SNew(SNFObjectivesWidget)
 		.Builder(FindFirstActor<ANFNetworkBuilder>(GetWorld()))
-		.Exit(FindFirstActor<ANFExitTrigger>(GetWorld()));
+		.Exit(FindFirstActor<ANFExitTrigger>(GetWorld()))
+		.Pot(FindFirstActor<ANFPlantPot>(GetWorld()));
 	AddOverlay(ObjectivesWidget.ToSharedRef(), ObjectivesZOrder);
 
 	MissionStartTime = GetWorld()->GetTimeSeconds();

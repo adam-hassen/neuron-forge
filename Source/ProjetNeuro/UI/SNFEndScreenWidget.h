@@ -42,6 +42,7 @@ private:
 
 class ANFNetworkBuilder;
 class ANFExitTrigger;
+class ANFPlantPot;
 
 /**
  * Panneau d'objectifs en haut à gauche pendant la partie :
@@ -53,17 +54,19 @@ public:
 	SLATE_BEGIN_ARGS(SNFObjectivesWidget) {}
 		SLATE_ARGUMENT(TWeakObjectPtr<ANFNetworkBuilder>, Builder)
 		SLATE_ARGUMENT(TWeakObjectPtr<ANFExitTrigger>, Exit)
+		SLATE_ARGUMENT(TWeakObjectPtr<ANFPlantPot>, Pot)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
 
 private:
-	enum class EObjective : uint8 { Design, Train, Validate, Exit };
+	enum class EObjective : uint8 { Design, Train, Validate, TestPlant, Exit };
 
 	bool IsDone(EObjective Objective) const;
 	bool IsCurrent(EObjective Objective) const;
-	TSharedRef<SWidget> MakeObjectiveRow(EObjective Objective, const FText& Label);
+	TSharedRef<SWidget> MakeObjectiveRow(EObjective Objective, const TAttribute<FText>& Label);
 
 	TWeakObjectPtr<ANFNetworkBuilder> Builder;
 	TWeakObjectPtr<ANFExitTrigger> Exit;
+	TWeakObjectPtr<ANFPlantPot> Pot;
 };

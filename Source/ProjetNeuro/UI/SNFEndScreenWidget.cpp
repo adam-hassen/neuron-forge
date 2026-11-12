@@ -3,6 +3,7 @@
 #include "UI/SNFEndScreenWidget.h"
 #include "Lab/NFExitTrigger.h"
 #include "Lab/NFNetworkBuilder.h"
+#include "Lab/NFPlantPot.h"
 #include "UI/NFUIStyle.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBackgroundBlur.h"
@@ -199,6 +200,7 @@ void SNFObjectivesWidget::Construct(const FArguments& InArgs)
 {
 	Builder = InArgs._Builder;
 	Exit = InArgs._Exit;
+	Pot = InArgs._Pot;
 
 	ChildSlot
 	.HAlign(HAlign_Left)
@@ -217,7 +219,12 @@ void SNFObjectivesWidget::Construct(const FArguments& InArgs)
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot().FillWidth(1.f)
 					[
-						SNew(STextBlock).Text(LOCTEXT("ObjTitle", "MISSION · XOR")).Font(NFUI::Font(12, TEXT("Bold"))).ColorAndOpacity(NFUI::Accent)
+						SNew(STextBlock)
+						.Text_Lambda([this]() -> FText
+						{
+							return Builder.IsValid() && Builder->IsGreenhouse() ? LOCTEXT("ObjTitleGreenhouse", "MISSION · LA SERRE") : LOCTEXT("ObjTitle", "MISSION · XOR");
+						})
+						.Font(NFUI::Font(12, TEXT("Bold"))).ColorAndOpacity(NFUI::Accent)
 					]
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
@@ -233,7 +240,12 @@ void SNFObjectivesWidget::Construct(const FArguments& InArgs)
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Design, LOCTEXT("ObjDesign", "Assembler le réseau (Forge)"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Train, LOCTEXT("ObjTrain", "Lancer l'entraînement"))]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Validate, LOCTEXT("ObjValidate", "Atteindre 100 % de précision"))]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Validate, TAttribute<FText>::CreateLambda([this]() -> FText
+				{
+					const float Target = Builder.IsValid() && Builder->GetTrainer() ? Builder->GetTrainer()->TargetAccuracy : 1.f;
+					return FText::Format(LOCTEXT("ObjValidate", "Atteindre {0} % de réussite"), FText::AsNumber(FMath::RoundToInt32(Target * 100.f)));
+				}))]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::TestPlant, LOCTEXT("ObjTest", "Tester le modèle sur une plante"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Exit, LOCTEXT("ObjExit", "Quitter le laboratoire"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)
 				[
@@ -252,6 +264,7 @@ bool SNFObjectivesWidget::IsDone(EObjective Objective) const
 	case EObjective::Design:	return B && B->GetNumHiddenLayers() > 0;
 	case EObjective::Train:		return B && B->GetTrainingAttempts() > 0;
 	case EObjective::Validate:	return B && B->HasSucceeded();
+	case EObjective::TestPlant:	return Pot.IsValid() ? Pot->HasBeenTested() : true;
 	case EObjective::Exit:		return Exit.IsValid() && Exit->IsCompleted();
 	default:					return false;
 	}
@@ -260,7 +273,7 @@ bool SNFObjectivesWidget::IsDone(EObjective Objective) const
 bool SNFObjectivesWidget::IsCurrent(EObjective Objective) const
 {
 	// L'objectif courant est le premier qui n'est pas atteint
-	for (EObjective Candidate : { EObjective::Design, EObjective::Train, EObjective::Validate, EObjective::Exit })
+	for (EObjective Candidate : { EObjective::Design, EObjective::Train, EObjective::Validate, EObjective::TestPlant, EObjective::Exit })
 	{
 		if (!IsDone(Candidate))
 		{
@@ -270,7 +283,7 @@ bool SNFObjectivesWidget::IsCurrent(EObjective Objective) const
 	return false;
 }
 
-TSharedRef<SWidget> SNFObjectivesWidget::MakeObjectiveRow(EObjective Objective, const FText& Label)
+TSharedRef<SWidget> SNFObjectivesWidget::MakeObjectiveRow(EObjective Objective, const TAttribute<FText>& Label)
 {
 	return SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 10.f, 0.f)

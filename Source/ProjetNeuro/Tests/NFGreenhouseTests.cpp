@@ -7,6 +7,8 @@
 #include "NeuralNetwork/NFNeuralNetwork.h"
 #include "Lab/NFLabDoor.h"
 #include "Lab/NFLabNotebook.h"
+#include "Lab/NFPlantPot.h"
+#include "Interaction/NFInteractable.h"
 #include "Lab/NFNetworkBuilder.h"
 #include "Tests/NFTestWorld.h"
 #include "Training/NFTrainerComponent.h"
@@ -262,6 +264,66 @@ bool FNFGreenhouseNotebookTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFGreenhousePlantPotTest, "NeuronForge.Greenhouse.PlantPot", NFTestUtils::Flags)
+
+bool FNFGreenhousePlantPotTest::RunTest(const FString& Parameters)
+{
+	NFTestUtils::FScopedTestWorld TestWorld(TEXT("NFPlantPotWorld"));
+	ANFNetworkBuilder* Builder = NFGreenhouseTests::SpawnGreenhouseBuilder(TestWorld.World, { { 5, ENFActivation::ReLU } });
+
+	const FTransform PotTransform(FVector(500.f, 0.f, 0.f));
+	ANFPlantPot* Pot = TestWorld.World->SpawnActorDeferred<ANFPlantPot>(ANFPlantPot::StaticClass(), PotTransform);
+	Pot->Builder = Builder;
+	Pot->FinishSpawning(PotTransform);
+
+	const FTransform ControlTransform(FVector(400.f, -150.f, 50.f));
+	ANFPlantControl* WaterControl = TestWorld.World->SpawnActorDeferred<ANFPlantControl>(ANFPlantControl::StaticClass(), ControlTransform);
+	WaterControl->Pot = Pot;
+	WaterControl->Setting = ENFPlantSetting::Water;
+	WaterControl->FinishSpawning(ControlTransform);
+
+	// Avant la validation : pot verrouillé
+	TestFalse(TEXT("Pot verrouillé avant la validation"), Pot->IsUnlocked());
+	TestFalse(TEXT("Commande inactive avant la validation"), INFInteractable::Execute_CanInteract(WaterControl, nullptr));
+	TestTrue(TEXT("Pas de prédiction avant la validation"), Pot->GetPrediction() < 0.f);
+	TestFalse(TEXT("Pas encore testé"), Pot->HasBeenTested());
+
+	Builder->StartTraining();
+	TestWorld.StepUntil([Builder]() { return !Builder->GetTrainer()->IsTraining(); }, 300);
+	TestEqual(TEXT("Modèle validé"), Builder->GetTrainingState(), ENFTrainingState::Succeeded);
+	TestTrue(TEXT("Pot actif après la validation"), Pot->IsUnlocked());
+
+	// Conditions idéales : la plante va bien
+	Pot->SetConditions(5, 5);
+	TestTrue(TEXT("Eau 5 / lumière 5 : survie prédite"), Pot->GetPrediction() > 0.5f);
+	TestTrue(TEXT("Eau 5 / lumière 5 : survie réelle"), Pot->WouldReallySurvive());
+
+	// La commande d'arrosage avance d'un cran à chaque appui, de 10 elle revient à 0
+	INFInteractable::Execute_Interact(WaterControl, nullptr);
+	TestEqual(TEXT("Arrosage : 5 -> 6"), Pot->GetValue(ENFPlantSetting::Water), 6);
+	TestTrue(TEXT("Le joueur a testé une plante"), Pot->HasBeenTested());
+	Pot->SetConditions(10, 5);
+	INFInteractable::Execute_Interact(WaterControl, nullptr);
+	TestEqual(TEXT("Arrosage : 10 -> 0"), Pot->GetValue(ENFPlantSetting::Water), 0);
+	TestTrue(TEXT("Sans eau : mort prédite"), Pot->GetPrediction() < 0.5f);
+	TestFalse(TEXT("Sans eau : mort réelle"), Pot->WouldReallySurvive());
+
+	// Sur toute la grille de réglages, le modèle validé est d'accord avec la vraie serre presque partout
+	int32 Agree = 0;
+	for (int32 W = 0; W <= 10; ++W)
+	{
+		for (int32 L = 0; L <= 10; ++L)
+		{
+			Pot->SetConditions(W, L);
+			Agree += (Pot->GetPrediction() >= 0.5f) == Pot->WouldReallySurvive() ? 1 : 0;
+		}
+	}
+	AddInfo(FString::Printf(TEXT("Pot : le modèle est d'accord avec la vraie serre sur %d réglages sur 121"), Agree));
+	TestTrue(TEXT("Accord avec la vraie serre sur au moins 90 % des réglages"), Agree >= 109);
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS
+
 
 

@@ -405,6 +405,13 @@ def create_lab_materials(materials):
     materials["HoloRing"] = create_material_instance("MI_NF_HoloRing", holo, scalars={"Brightness": 0.7, "Rings": 4.0, "Speed": 0.2})
     materials["Pulse"] = create_material_instance("MI_NF_Pulse", instanced, scalars={"EmissiveBoost": 9.0})
     materials["Chart"] = create_chart_material()
+    highlight_for_plant = eal.load_asset(MATERIALS + "/M_NF_Highlight")
+    materials["Plant"] = create_material_instance("MI_NF_Plant", highlight_for_plant,
+                                                  vectors={"BaseColor": (0.12, 0.75, 0.22, 1), "EmissiveColor": (0.05, 0.3, 0.08, 1)},
+                                                  scalars={"BaseGlow": 0.4, "HighlightBoost": 0.0, "Metallic": 0.0, "Roughness": 0.6})
+    materials["PotBody"] = create_material_instance("MI_NF_PotBody", surface,
+                                                    vectors={"BaseColor": (0.42, 0.18, 0.09, 1)},
+                                                    scalars={"Metallic": 0.0, "Roughness": 0.7, "EmissiveStrength": 0.0})
 
     def surface_mi(name, color, metallic, roughness):
         return create_material_instance(name, surface, vectors={"BaseColor": color},

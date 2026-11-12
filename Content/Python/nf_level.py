@@ -316,6 +316,27 @@ def build_gameplay(blueprints, mats, sounds):
     notebook.set_editor_property("board_material", mats["Console"])
     _frame("Cadre_Carnet", HOLO_X - 200 + 4, 1080, 380, 860, 520, mats)
 
+    # Phase de test : pot de plante et ses deux commandes, entre l'hologramme et la porte
+    pot_x, pot_y = 1750.0, 520.0
+    pot = _spawn(unreal.NFPlantPot, (pot_x, pot_y, 0), FACE_PLAYER, "PotDePlante", "Gameplay/Test")
+    pot.set_editor_property("builder", builder)
+    pot.set_editor_property("plant_material", mats["Plant"])
+    pot.set_editor_property("pot_material", mats["PotBody"])
+    pot.set_editor_property("pedestal_material", mats["Pillar"])
+    for setting, dy, label in ((unreal.NFPlantSetting.WATER, -170, "Commande_Arrosage"), (unreal.NFPlantSetting.LIGHT, 170, "Commande_Lampe")):
+        control = _spawn(unreal.NFPlantControl, (pot_x - 160, pot_y + dy, 55), FACE_PLAYER, label, "Gameplay/Test")
+        control.set_editor_property("pot", pot)
+        control.set_editor_property("setting", setting)
+        control.set_editor_property("body_material", mats["Pillar"])
+        control.set_editor_property("knob_material", mats["Module"])
+        if "S_NF_Click" in sounds:
+            control.set_editor_property("click_sound", sounds["S_NF_Click"])
+    _spot_light("Spot_Pot", (pot_x - 250, pot_y, HALL_HEIGHT - 300), -60.0, 1800.0, 900.0, 22.0, 40.0, (1.0, 0.95, 0.85))
+    for k in range(20):
+        angle = 2 * math.pi * k / 20
+        _box("Anneau_Pot_{}".format(k), (pot_x + 150 * math.cos(angle), pot_y + 150 * math.sin(angle), 1.5), (36, 3, 1),
+             mats["TrimSoft"], "Gameplay/Test")
+
     door = _spawn(blueprints["LabDoor"].generated_class(), (HALL_MAX_X + WALL / 2, 0, 0), FACE_PLAYER, "PorteLabo", "Gameplay")
     door.set_editor_property("builder", builder)
 

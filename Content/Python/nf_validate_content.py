@@ -102,6 +102,12 @@ notebooks = of_class("NFLabNotebook")
 check("1 carnet du labo", len(notebooks) == 1, len(notebooks))
 if notebooks:
     check("Le carnet a son material de graphique", notebooks[0].get_editor_property("chart_material") is not None)
+pots = of_class("NFPlantPot")
+check("1 pot de plante", len(pots) == 1, len(pots))
+controls = of_class("NFPlantControl")
+check("2 commandes du pot (arrosage, lampe)", len(controls) == 2, len(controls))
+if pots and controls:
+    check("Les commandes pilotent le pot", all(c.get_editor_property("pot") == pots[0] for c in controls))
 levers = of_class("NFLever")
 check("1 levier", len(levers) == 1, len(levers))
 modules = of_class("NFLayerModule")
