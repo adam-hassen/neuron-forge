@@ -98,6 +98,10 @@ forges = of_class("NFForge")
 check("1 Forge", len(forges) == 1, len(forges))
 if forges:
     check("La Forge pointe vers l'holotable", forges[0].get_editor_property("builder") == builder)
+notebooks = of_class("NFLabNotebook")
+check("1 carnet du labo", len(notebooks) == 1, len(notebooks))
+if notebooks:
+    check("Le carnet a son material de graphique", notebooks[0].get_editor_property("chart_material") is not None)
 levers = of_class("NFLever")
 check("1 levier", len(levers) == 1, len(levers))
 modules = of_class("NFLayerModule")

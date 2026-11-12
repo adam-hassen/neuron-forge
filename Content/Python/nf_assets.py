@@ -374,6 +374,21 @@ def create_holo_material():
     return material
 
 
+def create_chart_material():
+    """M_NF_Chart : écran non éclairé qui affiche la texture « Chart » dessinée en C++ (carnet du labo)."""
+    material, _ = _load_or_create("M_NF_Chart", MATERIALS, unreal.Material, unreal.MaterialFactoryNew())
+    _reset_material(material)
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    material.set_editor_property("two_sided", True)
+    texture = _expr(material, unreal.MaterialExpressionTextureSampleParameter2D, -600, 0, parameter_name="Chart",
+                    texture=eal.load_asset("/Engine/EngineResources/DefaultTexture"))
+    brightness = _scalar_param(material, "Brightness", 1.4, -600, 250)
+    emissive = _binary(material, unreal.MaterialExpressionMultiply, texture, brightness, -250, 100)
+    mel.connect_material_property(emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    mel.recompile_material(material)
+    return material
+
+
 def create_lab_materials(materials):
     """Ajoute au dictionnaire les materials du décor sci-fi."""
     materials["MoodCollection"] = create_mood_collection()
@@ -389,6 +404,7 @@ def create_lab_materials(materials):
     materials["Holo"] = create_material_instance("MI_NF_Holo", holo, scalars={"Brightness": 1.0, "Rings": 9.0})
     materials["HoloRing"] = create_material_instance("MI_NF_HoloRing", holo, scalars={"Brightness": 0.7, "Rings": 4.0, "Speed": 0.2})
     materials["Pulse"] = create_material_instance("MI_NF_Pulse", instanced, scalars={"EmissiveBoost": 9.0})
+    materials["Chart"] = create_chart_material()
 
     def surface_mi(name, color, metallic, roughness):
         return create_material_instance(name, surface, vectors={"BaseColor": color},

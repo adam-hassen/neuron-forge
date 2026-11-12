@@ -309,6 +309,13 @@ def build_gameplay(blueprints, mats, sounds):
     display.set_editor_property("builder", builder)
     display.set_editor_property("mission_title", "MISSION : LA SERRE DU LABO")
 
+    # Carnet du labo : en face de l'écran d'état, de l'autre côté de l'hologramme
+    notebook = _spawn(unreal.NFLabNotebook, (HOLO_X - 200, 1080, 380), FACE_PLAYER, "CarnetDuLabo", "Gameplay")
+    notebook.set_editor_property("builder", builder)
+    notebook.set_editor_property("chart_material", mats["Chart"])
+    notebook.set_editor_property("board_material", mats["Console"])
+    _frame("Cadre_Carnet", HOLO_X - 200 + 4, 1080, 380, 860, 520, mats)
+
     door = _spawn(blueprints["LabDoor"].generated_class(), (HALL_MAX_X + WALL / 2, 0, 0), FACE_PLAYER, "PorteLabo", "Gameplay")
     door.set_editor_property("builder", builder)
 

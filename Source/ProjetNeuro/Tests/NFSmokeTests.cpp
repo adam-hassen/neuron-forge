@@ -336,6 +336,7 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 		{ TEXT("Porte"), FVector(1500.f, -600.f, 100.f), FVector(2250.f, 0.f, 300.f) },
 		{ TEXT("Serveurs"), FVector(-900.f, 500.f, 100.f), FVector(-1500.f, 1500.f, 300.f) },
 		{ TEXT("Aide"), FVector(-1950.f, 700.f, 100.f), FVector(-1650.f, 700.f, 200.f) },
+		{ TEXT("Carnet"), FVector(150.f, 1080.f, 100.f), FVector(750.f, 1080.f, 360.f) },
 	};
 	for (const FView& View : Views)
 	{
@@ -357,12 +358,25 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 	{
 		NFSmoke::Teleport(Character, FVector(-650.f, 300.f, 100.f));
 		NFSmoke::LookAt(Character, FVector(950.f, 0.f, 420.f));
-		Builder->GetTrainer()->EpochsPerSecond = 12.f;
+		Builder->GetTrainer()->EpochsPerSecond = 2.f;
 		Builder->StartTraining();
 		return true;
 	}));
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.5f));
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(TEXT("Entrainement"))));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+
+	// Le carnet pendant l'entraînement : la zone prédite se forme
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Character]()
+	{
+		NFSmoke::Teleport(Character, FVector(150.f, 1080.f, 100.f));
+		NFSmoke::LookAt(Character, FVector(750.f, 1080.f, 360.f));
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(TEXT("CarnetEntrainement"))));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(6.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand(Shot(TEXT("CarnetFin"))));
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
 
 	// Écran de fin

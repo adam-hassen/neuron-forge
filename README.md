@@ -256,6 +256,7 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `Greenhouse.Dataset` | Serre : 160 expériences reproductibles, entrées brutes 0-10 et normalisées -1/1, 25 à 50 % de survies, un peu de bruit (moins de 10 %), règle de la zone de survie. |
 | `Greenhouse.LabSuccessOpensDoor` | Holotable en mode serre : dataset et réglages chargés, 5 ReLU réussit en moins de 30 s de jeu, la porte s'ouvre, prédictions ponctuelles cohérentes. |
 | `Greenhouse.LinearModelFails` | Sans couche cachée : échec sous 80 % et conseil « ligne droite ». |
+| `Greenhouse.Notebook` | Carnet du labo : fond neutre avant l'entraînement, zone verte au centre et rouge dans les coins après la réussite, erreurs entourées = expériences mal prédites. |
 | `Greenhouse.Calibration` | Mesures ci-dessous ; vérifie que le linéaire plafonne sous 80 % et que 4 à 6 neurones Tanh ou ReLU (taux 0,1) atteignent 95 % en moins de 40 epochs. |
 | `Interaction.Interactor` | Dans un monde de test : rayon, distance maximale, focus et surbrillance, interaction, objet désactivé, source de visée de type contrôleur VR, interaction directe sans rayon. |
 | `Lab.BuilderEditing` | Actions de configuration et leurs limites, verrouillage pendant l'entraînement, bouton lié à une couche absente puis présente. |
@@ -327,8 +328,8 @@ Mesures du test `Greenhouse.Calibration` (même procédure d'entraînement que l
 | 7 | Refonte visuelle du labo : ambiance sci-fi, éclairage réactif, animations | ✅ Terminé |
 | 8 | Forge à pièces (puzzle physique) et grand hall de 45 × 30 m | ✅ Terminé |
 | 9 | La serre : dataset, calibrage, holotable / Forge / écran d'état en mode serre | ✅ Terminé |
-| 10 | Carnet du labo (frontière de décision en direct) | ⏳ En cours |
-| 11 | Phase de test : le pot de plante | 🔲 À faire |
+| 10 | Carnet du labo (frontière de décision en direct) | ✅ Terminé |
+| 11 | Phase de test : le pot de plante | ⏳ En cours |
 | 12 | Textes, tests et README pour la serre | 🔲 À faire |
 
 ---

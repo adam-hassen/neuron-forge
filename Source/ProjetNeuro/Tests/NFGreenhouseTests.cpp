@@ -6,6 +6,7 @@
 #include "NeuralNetwork/NFDataset.h"
 #include "NeuralNetwork/NFNeuralNetwork.h"
 #include "Lab/NFLabDoor.h"
+#include "Lab/NFLabNotebook.h"
 #include "Lab/NFNetworkBuilder.h"
 #include "Tests/NFTestWorld.h"
 #include "Training/NFTrainerComponent.h"
@@ -227,5 +228,40 @@ bool FNFGreenhouseLinearTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFGreenhouseNotebookTest, "NeuronForge.Greenhouse.Notebook", NFTestUtils::Flags)
+
+bool FNFGreenhouseNotebookTest::RunTest(const FString& Parameters)
+{
+	NFTestUtils::FScopedTestWorld TestWorld(TEXT("NFNotebookWorld"));
+	ANFNetworkBuilder* Builder = NFGreenhouseTests::SpawnGreenhouseBuilder(TestWorld.World, { { 5, ENFActivation::ReLU } });
+
+	const FTransform Transform(FVector(0.f, 1000.f, 300.f));
+	ANFLabNotebook* Notebook = TestWorld.World->SpawnActorDeferred<ANFLabNotebook>(ANFLabNotebook::StaticClass(), Transform);
+	Notebook->Builder = Builder;
+	Notebook->FinishSpawning(Transform);
+	Notebook->Redraw();
+
+	TestNotNull(TEXT("Texture du graphique créée"), Notebook->GetChartTexture());
+	TestFalse(TEXT("Avant l'entraînement : pas de zone prédite"), Notebook->ShowsPrediction());
+	TestEqual(TEXT("Avant l'entraînement : fond neutre"), Notebook->GetBackgroundColorAt(4.6f, 5.4f), Notebook->GetBackgroundColorAt(0.5f, 0.5f));
+
+	Builder->StartTraining();
+	TestWorld.StepUntil([Builder]() { return !Builder->GetTrainer()->IsTraining(); }, 300);
+	TestEqual(TEXT("Modèle validé"), Builder->GetTrainingState(), ENFTrainingState::Succeeded);
+	Notebook->Redraw();
+
+	TestTrue(TEXT("Après l'entraînement : zone prédite affichée"), Notebook->ShowsPrediction());
+	const FColor Center = Notebook->GetBackgroundColorAt(4.6f, 5.4f);
+	const FColor Corner = Notebook->GetBackgroundColorAt(0.5f, 9.5f);
+	TestTrue(TEXT("Centre de la serre : zone verte (survie prédite)"), Center.G > Center.R);
+	TestTrue(TEXT("Coin sec et trop éclairé : zone rouge (mort prédite)"), Corner.R > Corner.G);
+
+	const int32 Expected = FMath::RoundToInt32((1.f - Builder->GetTrainer()->GetProgress().Accuracy) * Builder->GetTrainer()->GetDataset().Num());
+	AddInfo(FString::Printf(TEXT("Carnet : %d erreurs affichées"), Notebook->GetMistakeCount()));
+	TestEqual(TEXT("Erreurs entourées = expériences mal prédites"), Notebook->GetMistakeCount(), Expected);
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS
+
 
