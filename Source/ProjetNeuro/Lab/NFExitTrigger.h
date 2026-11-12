@@ -30,7 +30,7 @@ public:
 	bool IsCompleted() const { return bCompleted; }
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Exit")
-	FString CompletionMessage = TEXT("Niveau terminé ! Votre réseau a résolu XOR.");
+	FString CompletionMessage = TEXT("Niveau terminé ! Votre modèle est validé.");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Audio")
 	TObjectPtr<USoundBase> CompletionSound;

@@ -39,7 +39,7 @@ void SNFEndScreenWidget::Construct(const FArguments& InArgs)
 		]
 		+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
 		[
-			SNew(SBox).WidthOverride(980.f)
+			SNew(SBox).WidthOverride(1180.f)
 			[
 				SNew(SBorder)
 				.BorderImage(NFUI::PanelBrush())
@@ -53,7 +53,7 @@ void SNFEndScreenWidget::Construct(const FArguments& InArgs)
 						.BorderBackgroundColor(FLinearColor(0.2f, 1.f, 0.5f, 0.15f))
 						.Padding(FMargin(16.f, 6.f))
 						[
-							SNew(STextBlock).Text(LOCTEXT("Badge", "NIVEAU 1 TERMINÉ")).Font(NFUI::Font(12, TEXT("Bold"))).ColorAndOpacity(NFUI::Success)
+							SNew(STextBlock).Text(LOCTEXT("Badge", "NIVEAU 1 TERMINÉ  ·  LA SERRE")).Font(NFUI::Font(12, TEXT("Bold"))).ColorAndOpacity(NFUI::Success)
 						]
 					]
 					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 16.f, 0.f, 6.f)
@@ -63,7 +63,7 @@ void SNFEndScreenWidget::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("Subtitle", "Votre réseau de neurones a résolu XOR : la porte du laboratoire s'est ouverte."))
+						.Text(LOCTEXT("Subtitle", "Votre modèle sait prédire si une plante survit : la porte du laboratoire s'est ouverte."))
 						.Font(NFUI::Font(16)).ColorAndOpacity(NFUI::Muted)
 					]
 
@@ -71,19 +71,23 @@ void SNFEndScreenWidget::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 32.f, 0.f, 0.f)
 					[
 						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot().FillWidth(1.6f).Padding(0.f, 0.f, 8.f, 0.f)
+						+ SHorizontalBox::Slot().FillWidth(2.2f).Padding(0.f, 0.f, 8.f, 0.f)
 						[
 							MakeStat(LOCTEXT("StatArchi", "ARCHITECTURE"), FText::FromString(Summary.Architecture), NFUI::Accent)
 						]
 						+ SHorizontalBox::Slot().FillWidth(1.f).Padding(8.f, 0.f)
 						[
-							MakeStat(LOCTEXT("StatEpochs", "EPOCHS"), FText::AsNumber(Summary.Epochs), NFUI::Text)
+							MakeStat(LOCTEXT("StatAccuracy", "RÉUSSITE"), FText::FromString(FString::Printf(TEXT("%.0f %%"), Summary.Accuracy * 100.f)), NFUI::Success)
+						]
+						+ SHorizontalBox::Slot().FillWidth(1.f).Padding(8.f, 0.f)
+						[
+							MakeStat(LOCTEXT("StatEpochs", "TOURS"), FText::AsNumber(Summary.Epochs), NFUI::Text)
 						]
 						+ SHorizontalBox::Slot().FillWidth(1.f).Padding(8.f, 0.f)
 						[
 							MakeStat(LOCTEXT("StatAttempts", "ESSAIS"), FText::AsNumber(Summary.Attempts), NFUI::Warning)
 						]
-						+ SHorizontalBox::Slot().FillWidth(1.f).Padding(8.f, 0.f, 0.f, 0.f)
+						+ SHorizontalBox::Slot().FillWidth(1.4f).Padding(8.f, 0.f, 0.f, 0.f)
 						[
 							MakeStat(LOCTEXT("StatTime", "DURÉE"), Duration, NFUI::Success)
 						]
@@ -105,9 +109,11 @@ void SNFEndScreenWidget::Construct(const FArguments& InArgs)
 							[
 								SNew(STextBlock)
 								.Text(LOCTEXT("Lesson",
-									"XOR n'est pas linéairement séparable : un modèle sans couche cachée, ou avec seulement des activations "
-									"linéaires, ne peut tracer qu'une droite. Une couche cachée avec une activation non linéaire "
-									"(ReLU, Tanh, Sigmoid) permet au réseau de plier l'espace et de séparer les 4 cas."))
+									"Une plante ne survit que dans un îlot au milieu du graphique : ni trop ni trop peu d'eau et de lumière. "
+									"Un modèle sans couche cachée, ou avec seulement des couches Linear, ne trace qu'une ligne droite : il "
+									"ne peut pas entourer l'îlot et plafonne à 70 % (il répond toujours « la plante meurt »). Avec une couche "
+									"cachée et une activation non linéaire (ReLU, Tanh, Sigmoid), le réseau courbe sa frontière et entoure "
+									"la zone de survie : c'est ce que vous avez vu se dessiner dans le carnet du labo."))
 								.Font(NFUI::Font(15)).ColorAndOpacity(NFUI::Text).AutoWrapText(true).LineHeightPercentage(1.15f)
 							]
 						]
@@ -163,7 +169,7 @@ TSharedRef<SWidget> SNFEndScreenWidget::MakeStat(const FText& Label, const FText
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)
 			[
-				SNew(STextBlock).Text(Value).Font(NFUI::Font(22, TEXT("Bold"))).ColorAndOpacity(Color)
+				SNew(STextBlock).Text(Value).Font(NFUI::Font(20, TEXT("Bold"))).ColorAndOpacity(Color)
 			]
 		];
 }

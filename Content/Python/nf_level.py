@@ -417,14 +417,15 @@ def build_help_panel(mats):
         ("4. Plantez un cristal sur le module pour choisir l'activation", (220, 235, 255)),
         ("5. Tirez le levier pour régler le taux d'apprentissage", (220, 235, 255)),
         ("6. Marchez sur le bouton au sol : l'entraînement démarre", (220, 235, 255)),
-        ("", (0, 0, 0)),
-        ("Sans cristal, un module est Linear.", (170, 190, 210)),
+        ("7. Sur le carnet du labo, regardez la zone verte se dessiner", (220, 235, 255)),
+        ("8. À 95 % de réussite, testez une plante près de la porte", (220, 235, 255)),
+        ("Sans cristal, un module est Linear (ligne droite).", (170, 190, 210)),
         ("Pour retirer une pièce, visez-la et appuyez sur E.", (170, 190, 210)),
         ("H : revoir le briefing", (170, 190, 210)),
     ]
     for i, (line, color) in enumerate(lines):
         if line:
-            _text("Aide_Ligne{}".format(i), (text_x, left, z + 85 - i * 24), line, 9, color, folder="Gameplay/Aide",
+            _text("Aide_Ligne{}".format(i), (text_x, left, z + 88 - i * 21), line, 8.5, color, folder="Gameplay/Aide",
                   align=unreal.HorizTextAligment.EHTA_LEFT)
 
 

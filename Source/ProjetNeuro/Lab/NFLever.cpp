@@ -179,7 +179,7 @@ FText ANFLever::GetInteractionPrompt_Implementation() const
 		return LOCTEXT("Locked", "Levier bloqué pendant l'entraînement");
 	}
 	const int32 Next = GetNextIndex();
-	return FText::Format(LOCTEXT("Pull", "Tirer le levier : taux d'apprentissage {0} → {1}"),
+	return FText::Format(LOCTEXT("Pull", "Tirer le levier : taux d'apprentissage {0}, passe à {1}"),
 		FText::FromString(FormatRate(Builder->GetLearningRate())),
 		FText::FromString(FormatRate(Builder->LearningRateSteps.IsValidIndex(Next) ? Builder->LearningRateSteps[Next] : 0.f)));
 }

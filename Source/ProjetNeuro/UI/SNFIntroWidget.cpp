@@ -2,6 +2,7 @@
 
 #include "UI/SNFIntroWidget.h"
 #include "NeuralNetwork/NFActivation.h"
+#include "NeuralNetwork/NFDataset.h"
 #include "UI/NFUIStyle.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
@@ -190,7 +191,7 @@ void SNFIntroWidget::Construct(const FArguments& InArgs)
 							.BorderBackgroundColor(NFUI::AccentSoft)
 							.Padding(FMargin(14.f, 6.f))
 							[
-								MakeText(LOCTEXT("LevelTag", "NIVEAU 1  ·  XOR"), 12, NFUI::Accent, TEXT("Bold"))
+								MakeText(LOCTEXT("LevelTag", "NIVEAU 1  ·  LA SERRE"), 12, NFUI::Accent, TEXT("Bold"))
 							]
 						]
 					]
@@ -286,7 +287,7 @@ TSharedRef<SWidget> SNFIntroWidget::BuildPage(int32 PageIndex)
 	switch (PageIndex)
 	{
 	case 0:		return BuildWelcomePage();
-	case 1:		return BuildXORPage();
+	case 1:		return BuildProblemPage();
 	case 2:		return BuildMissionPage();
 	default:	return BuildControlsPage();
 	}
@@ -309,8 +310,9 @@ TSharedRef<SWidget> SNFIntroWidget::BuildWelcomePage()
 			+ SVerticalBox::Slot().AutoHeight()
 			[
 				MakeParagraph(LOCTEXT("WelcomeBody1",
-					"Vous êtes ingénieur·e en intelligence artificielle. La porte de sécurité du laboratoire est verrouillée : "
-					"elle ne s'ouvrira que devant un modèle capable de résoudre le problème XOR sans la moindre erreur."), 17)
+					"Vous êtes ingénieur·e en intelligence artificielle. La serre du labo a besoin d'aide : il faut un modèle "
+					"capable de prédire si une plante va survivre selon l'eau et la lumière qu'elle reçoit. La porte de "
+					"sécurité ne s'ouvrira que devant un modèle assez fiable."), 17)
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 16.f, 0.f, 0.f)
 			[
@@ -332,11 +334,11 @@ TSharedRef<SWidget> SNFIntroWidget::BuildWelcomePage()
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 4.f)
 				[
-					MakeText(LOCTEXT("ObjectiveValue", "100 %"), 64, NFUI::Accent, TEXT("Bold"))
+					MakeText(LOCTEXT("ObjectiveValue", "95 %"), 64, NFUI::Accent, TEXT("Bold"))
 				]
 				+ SVerticalBox::Slot().AutoHeight()
 				[
-					MakeText(LOCTEXT("ObjectiveLabel", "de précision sur les 4 cas de XOR"), 16, NFUI::Text)
+					MakeText(LOCTEXT("ObjectiveLabel", "de bonnes prédictions sur les 160 plantes"), 16, NFUI::Text)
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 22.f, 0.f, 0.f)
 				[
@@ -351,7 +353,7 @@ TSharedRef<SWidget> SNFIntroWidget::BuildWelcomePage()
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)
 				[
-					MakeSwatch(NFUI::Warning, LOCTEXT("Reward2", "Essais illimités : expérimentez !"))
+					MakeSwatch(NFUI::Warning, LOCTEXT("Reward2", "Ensuite : testez votre modèle sur une vraie plante"))
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)
 				[
@@ -361,34 +363,62 @@ TSharedRef<SWidget> SNFIntroWidget::BuildWelcomePage()
 		];
 }
 
-TSharedRef<SWidget> SNFIntroWidget::BuildXORPage()
+TSharedRef<SWidget> SNFIntroWidget::BuildProblemPage()
 {
-	const FLinearColor Header(0.10f, 0.18f, 0.26f, 1.f);
-	const FLinearColor Cell(0.06f, 0.10f, 0.15f, 1.f);
-	const FLinearColor One(0.10f, 0.55f, 0.35f, 1.f);
-	const FLinearColor Zero(0.20f, 0.12f, 0.14f, 1.f);
-
-	TSharedRef<SGridPanel> Table = SNew(SGridPanel);
-	Table->AddSlot(0, 0)[MakeCell(FText::FromString(TEXT("x1")), Header, NFUI::Accent)];
-	Table->AddSlot(1, 0)[MakeCell(FText::FromString(TEXT("x2")), Header, NFUI::Accent)];
-	Table->AddSlot(2, 0)[MakeCell(FText::FromString(TEXT("XOR")), Header, NFUI::Accent)];
-
-	const int32 Rows[4][3] = { { 0, 0, 0 }, { 0, 1, 1 }, { 1, 0, 1 }, { 1, 1, 0 } };
-	for (int32 r = 0; r < 4; ++r)
+	// Mini-carte de la serre : chaque case = un réglage eau / lumière, verte si la plante survit
+	const FLinearColor Alive(0.12f, 0.62f, 0.30f, 1.f);
+	const FLinearColor Dead(0.42f, 0.13f, 0.12f, 1.f);
+	TSharedRef<SGridPanel> Map = SNew(SGridPanel);
+	for (int32 Light = 10; Light >= 0; --Light)
 	{
-		Table->AddSlot(0, r + 1)[MakeCell(FText::AsNumber(Rows[r][0]), Cell, NFUI::Text, TEXT("Regular"))];
-		Table->AddSlot(1, r + 1)[MakeCell(FText::AsNumber(Rows[r][1]), Cell, NFUI::Text, TEXT("Regular"))];
-		Table->AddSlot(2, r + 1)[MakeCell(FText::AsNumber(Rows[r][2]), Rows[r][2] ? One : Zero, NFUI::Text)];
+		const int32 Row = 10 - Light;
+		Map->AddSlot(0, Row)
+		[
+			SNew(SBox).WidthOverride(26.f).HeightOverride(20.f).HAlign(HAlign_Right).VAlign(VAlign_Center)
+			[
+				MakeText(FText::AsNumber(Light), 9, NFUI::Muted)
+			]
+		];
+		for (int32 Water = 0; Water <= 10; ++Water)
+		{
+			Map->AddSlot(Water + 1, Row)
+			[
+				SNew(SBox).WidthOverride(20.f).HeightOverride(20.f).Padding(1.f)
+				[
+					SNew(SBorder)
+					.BorderImage(NFUI::PillBrush())
+					.BorderBackgroundColor(FNFDataset::GreenhouseSurvives(Water, Light) ? Alive : Dead)
+				]
+			];
+		}
+	}
+	for (int32 Water = 0; Water <= 10; Water += 5)
+	{
+		Map->AddSlot(Water + 1, 11)[SNew(SBox).HAlign(HAlign_Center)[MakeText(FText::AsNumber(Water), 9, NFUI::Muted)]];
 	}
 
 	return SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 48.f, 0.f)
+		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0.f, 0.f, 40.f, 0.f)
 		[
 			SNew(SBorder)
 			.BorderImage(NFUI::CardBrush())
-			.Padding(FMargin(20.f))
+			.Padding(FMargin(16.f, 14.f))
 			[
-				Table
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 0.f, 0.f, 6.f)
+				[
+					MakeText(LOCTEXT("MapTitle", "Lumière (haut) / Eau (droite)"), 12, NFUI::Muted, TEXT("Bold"))
+				]
+				+ SVerticalBox::Slot().AutoHeight()
+				[
+					Map
+				]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 8.f, 0.f, 0.f)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot().AutoWidth().Padding(0.f, 0.f, 16.f, 0.f)[MakeSwatch(Alive, LOCTEXT("MapAlive", "survit"))]
+					+ SHorizontalBox::Slot().AutoWidth()[MakeSwatch(Dead, LOCTEXT("MapDead", "meurt"))]
+				]
 			]
 		]
 		+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
@@ -396,23 +426,23 @@ TSharedRef<SWidget> SNFIntroWidget::BuildXORPage()
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot().AutoHeight()
 			[
-				MakeEyebrow(LOCTEXT("XOREyebrow", "LE PROBLÈME"))
+				MakeEyebrow(LOCTEXT("ProblemEyebrow", "LE PROBLÈME"))
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 18.f)
 			[
-				MakeText(LOCTEXT("XORTitle", "Le OU exclusif (XOR)"), 36, NFUI::Text, TEXT("Bold"))
+				MakeText(LOCTEXT("ProblemTitle", "La serre du labo"), 36, NFUI::Text, TEXT("Bold"))
 			]
 			+ SVerticalBox::Slot().AutoHeight()
 			[
-				MakeParagraph(LOCTEXT("XORBody1",
-					"XOR vaut 1 quand ses deux entrées sont différentes, et 0 quand elles sont identiques. "
-					"Le réseau reçoit x1 et x2 et doit prédire la bonne sortie pour les 4 cas."), 17)
+				MakeParagraph(LOCTEXT("ProblemBody1",
+					"Le labo a fait pousser 160 plantes en changeant deux réglages : la quantité d'eau et la quantité "
+					"de lumière (de 0 à 10). Pour chacune, on a noté si elle a survécu ou si elle est morte."), 17)
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 16.f, 0.f, 0.f)
 			[
-				MakeParagraph(LOCTEXT("XORBody2",
-					"Le piège : placez ces 4 points sur un plan, aucune droite ne sépare les 1 des 0. "
-					"C'est ce problème qui a montré les limites du perceptron simple en 1969."), 17)
+				MakeParagraph(LOCTEXT("ProblemBody2",
+					"Une plante ne survit que si elle n'a ni trop ni trop peu d'eau et de lumière : la zone de survie est "
+					"un îlot au milieu. Votre modèle doit apprendre, à partir de ces exemples, à prédire si une plante survivra."), 17)
 			]
 			+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 22.f, 0.f, 0.f)
 			[
@@ -420,7 +450,7 @@ TSharedRef<SWidget> SNFIntroWidget::BuildXORPage()
 				.BorderImage(NFUI::AccentCardBrush())
 				.Padding(FMargin(18.f, 14.f))
 				[
-					MakeText(LOCTEXT("XORQuestion", "Question : de quoi votre réseau a-t-il besoin pour tracer une frontière courbe ?"),
+					MakeText(LOCTEXT("ProblemQuestion", "Question : une simple ligne droite peut-elle entourer un îlot ?"),
 						15, NFUI::Accent, TEXT("Bold"), true)
 				]
 			]
@@ -436,7 +466,7 @@ TSharedRef<SWidget> SNFIntroWidget::BuildMissionPage()
 		]
 		+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 26.f)
 		[
-			MakeText(LOCTEXT("MissionTitle", "Concevoir, entraîner, valider"), 36, NFUI::Text, TEXT("Bold"))
+			MakeText(LOCTEXT("MissionTitle", "Concevoir, entraîner, tester"), 36, NFUI::Text, TEXT("Bold"))
 		]
 		+ SVerticalBox::Slot().FillHeight(1.f)
 		[
@@ -451,14 +481,14 @@ TSharedRef<SWidget> SNFIntroWidget::BuildMissionPage()
 			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(7.f, 0.f)
 			[
 				MakeStepCard(2, LOCTEXT("Step2Title", "Entraîner"),
-					LOCTEXT("Step2Body", "Marchez sur le disque lumineux « ENTRAÎNER » devant l'holotable. Observez la perte diminuer, "
-						"les poids changer de couleur et les signaux circuler dans le réseau."), NFUI::Warning)
+					LOCTEXT("Step2Body", "Marchez sur le disque lumineux « ENTRAÎNER ». Sur le carnet du labo, regardez la zone "
+						"verte se dessiner : c'est là où le modèle pense que la plante survit. Un bon modèle réussit en 10 à 30 secondes."), NFUI::Warning)
 			]
 			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(14.f, 0.f, 0.f, 0.f)
 			[
-				MakeStepCard(3, LOCTEXT("Step3Title", "Valider"),
-					LOCTEXT("Step3Body", "À 100 % de précision, le système de sécurité valide votre modèle et la porte s'ouvre. "
-						"Échec ? Lisez le conseil affiché sur l'écran d'état, modifiez le réseau et réessayez."), NFUI::Success)
+				MakeStepCard(3, LOCTEXT("Step3Title", "Valider et tester"),
+					LOCTEXT("Step3Body", "À 95 % de bonnes prédictions, la porte s'ouvre. Testez alors votre modèle sur le pot de "
+						"plante : réglez l'arrosage et la lampe. Échec ? Lisez le conseil de l'écran d'état et réessayez."), NFUI::Success)
 			]
 		];
 }

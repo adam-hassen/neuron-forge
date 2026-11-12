@@ -42,7 +42,7 @@ public:
 private:
 	TSharedRef<SWidget> BuildPage(int32 PageIndex);
 	TSharedRef<SWidget> BuildWelcomePage();
-	TSharedRef<SWidget> BuildXORPage();
+	TSharedRef<SWidget> BuildProblemPage();
 	TSharedRef<SWidget> BuildMissionPage();
 	TSharedRef<SWidget> BuildControlsPage();
 	TSharedRef<SWidget> BuildPageDots();

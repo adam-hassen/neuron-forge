@@ -216,6 +216,7 @@ void ANFPlayerController::ShowEndScreen()
 		Summary.Architecture = Builder->HasSucceeded() ? Builder->GetSuccessArchitecture() : Builder->DescribeNetwork();
 		Summary.LearningRate = Builder->GetSuccessLearningRate();
 		Summary.Epochs = Builder->GetSuccessProgress().Epoch;
+		Summary.Accuracy = Builder->GetSuccessProgress().Accuracy;
 		Summary.FinalLoss = Builder->GetSuccessProgress().Loss;
 		Summary.Attempts = Builder->GetTrainingAttempts();
 	}

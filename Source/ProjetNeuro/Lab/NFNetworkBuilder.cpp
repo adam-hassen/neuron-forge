@@ -253,17 +253,17 @@ FText ANFNetworkBuilder::DescribeAction(ENFConfigAction Action, int32 LayerIndex
 			: LOCTEXT("RemoveLayerNone", "Retirer une couche (aucune couche cachée)");
 	case ENFConfigAction::AddNeuron:
 		return bLayerExists
-			? FText::Format(LOCTEXT("AddNeuron", "{0} : ajouter un neurone ({1} → {2})"), LayerName,
+			? FText::Format(LOCTEXT("AddNeuron", "{0} : ajouter un neurone ({1} puis {2})"), LayerName,
 				FText::AsNumber(HiddenLayers[LayerIndex].NumNeurons), FText::AsNumber(HiddenLayers[LayerIndex].NumNeurons + 1))
 			: FText::Format(LOCTEXT("NoLayer", "{0} : couche absente"), LayerName);
 	case ENFConfigAction::RemoveNeuron:
 		return bLayerExists
-			? FText::Format(LOCTEXT("RemoveNeuron", "{0} : retirer un neurone ({1} → {2})"), LayerName,
+			? FText::Format(LOCTEXT("RemoveNeuron", "{0} : retirer un neurone ({1} puis {2})"), LayerName,
 				FText::AsNumber(HiddenLayers[LayerIndex].NumNeurons), FText::AsNumber(HiddenLayers[LayerIndex].NumNeurons - 1))
 			: FText::Format(LOCTEXT("NoLayer", "{0} : couche absente"), LayerName);
 	case ENFConfigAction::NextActivation:
 		return bLayerExists
-			? FText::Format(LOCTEXT("NextActivation", "{0} : activation {1} → {2}"), LayerName,
+			? FText::Format(LOCTEXT("NextActivation", "{0} : activation {1}, passe à {2}"), LayerName,
 				FText::FromString(NFActivation::ToString(HiddenLayers[LayerIndex].Activation)),
 				FText::FromString(NFActivation::ToString(NFActivation::Next(HiddenLayers[LayerIndex].Activation))))
 			: FText::Format(LOCTEXT("NoLayer", "{0} : couche absente"), LayerName);
@@ -272,7 +272,7 @@ FText ANFNetworkBuilder::DescribeAction(ENFConfigAction Action, int32 LayerIndex
 	{
 		const int32 Delta = (Action == ENFConfigAction::IncreaseLearningRate) ? 1 : -1;
 		const int32 NewIndex = FMath::Clamp(LearningRateIndex + Delta, 0, LearningRateSteps.Num() - 1);
-		return FText::Format(LOCTEXT("LearningRate", "Taux d'apprentissage : {0} → {1}"),
+		return FText::Format(LOCTEXT("LearningRate", "Taux d'apprentissage : {0}, passe à {1}"),
 			FText::FromString(FormatLearningRate(GetLearningRate())),
 			FText::FromString(FormatLearningRate(LearningRateSteps.IsValidIndex(NewIndex) ? LearningRateSteps[NewIndex] : 0.f)));
 	}
@@ -715,7 +715,7 @@ void ANFNetworkBuilder::UpdateLabels()
 		{
 			const float* Raw = Dataset.GetRawInput(DisplayedSample);
 			SampleLabel->SetText(FText::FromString(FString::Printf(
-				TEXT("Expérience %d : eau %.1f · lumière %.1f → %s     Le modèle dit : %.0f %% de chances de survie"),
+				TEXT("Expérience %d : eau %.1f · lumière %.1f : la plante %s     Le modèle dit : %.0f %% de chances de survie"),
 				DisplayedSample + 1, Raw[0], Raw[1], Target >= 0.5f ? TEXT("a survécu") : TEXT("est morte"), Output * 100.f)));
 		}
 		else

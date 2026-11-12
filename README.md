@@ -25,45 +25,58 @@ Projet réalisé pour la matière **Réalité étendue et interactions multimoda
 
 Le deep learning est souvent enseigné de façon abstraite : des équations, des courbes de perte, du code. **Neuron Forge** rend ces notions *tangibles* en plaçant le joueur dans un laboratoire où le réseau de neurones devient un objet physique qu'il assemble de ses mains.
 
-Le joueur **assemble de ses mains l'architecture d'un modèle**, comme un puzzle : il porte des pièces physiques jusqu'à la Forge (un module = une couche cachée, une orbe = un neurone, un cristal = une fonction d'activation, un levier = le taux d'apprentissage). Il **lance l'entraînement** et **observe** sur un hologramme géant la perte diminuer, les poids évoluer et les signaux circuler. La porte du laboratoire ne s'ouvre que si le modèle atteint la **précision cible**.
+Le joueur **assemble de ses mains l'architecture d'un modèle**, comme un puzzle : il porte des pièces physiques jusqu'à la Forge (un module = une couche cachée, une orbe = un neurone, un cristal = une fonction d'activation, un levier = le taux d'apprentissage). Il **lance l'entraînement** et **observe** sur un hologramme géant la perte diminuer, les poids évoluer et les signaux circuler. La porte du laboratoire ne s'ouvre que si le modèle atteint la **précision cible** ; le joueur teste ensuite son modèle sur une vraie plante.
 
 Ce que le joueur apprend en jouant :
 
-- **Pourquoi la non-linéarité est indispensable** : sans couche cachée ou avec une activation linéaire, le réseau ne peut pas résoudre XOR, quel que soit le nombre d'epochs.
+- **Pourquoi la non-linéarité est indispensable** : sans couche cachée ou avec une activation linéaire, le réseau ne trace qu'une ligne droite et ne peut pas entourer la zone de survie de la plante, quel que soit le nombre d'epochs.
+- **Ce qu'est une frontière de décision** : le carnet du labo montre en direct la zone où le modèle pense que la plante survit.
+- **Qu'un modèle peut se tromper** : les erreurs sont entourées sur le carnet, et le pot de plante compare la prédiction à la réalité.
 - **L'effet de la capacité du modèle** : trop peu de neurones, le modèle stagne ; assez de neurones, il converge.
 - **L'influence des hyperparamètres** : un taux d'apprentissage trop faible ralentit l'entraînement, trop fort le rend instable.
 - **Le rôle des fonctions d'activation** : ReLU, Sigmoid, Tanh et Linear n'ont pas le même comportement, ce que la couleur et l'intensité des neurones rendent visible.
 
-Le premier niveau (MVP) utilise le dataset **XOR**, le problème historique qui a montré les limites du perceptron simple.
+### Le problème : la serre du labo
 
-| x₁ | x₂ | XOR |
-|:--:|:--:|:---:|
-| 0  | 0  |  0  |
-| 0  | 1  |  1  |
-| 1  | 0  |  1  |
-| 1  | 1  |  0  |
+Le niveau jouable pose un problème concret. Le labo a fait pousser **160 plantes** en variant deux réglages, la quantité d'**eau** et la quantité de **lumière** (de 0 à 10), et a noté pour chacune si elle a **survécu (1)** ou est **morte (0)**. Une plante ne survit que dans une **zone du milieu** (ni trop ni trop peu d'eau et de lumière) : la zone de survie est un îlot, que **aucune ligne droite ne peut entourer**. Comme le OU exclusif (XOR), le problème n'est donc pas linéairement séparable, mais il parle à tout le monde.
+
+| Entrées | Sortie | Objectif |
+|---|---|---|
+| Eau (0 à 10), Lumière (0 à 10), normalisées entre -1 et 1 pour le réseau | Survie (probabilité entre 0 et 1) | 95 % de bonnes prédictions sur les 160 plantes |
+
+Le dataset **XOR** (4 exemples) reste dans le code : il sert aux tests automatisés du réseau et de la Forge.
+
+![Le carnet du labo : la frontière de décision trouvée par le modèle](Docs/Images/NF_Carnet.png)
 
 ---
 
 ## Gameplay
 
-1. **Briefing de mission** : au lancement, un écran d'introduction en 4 pages (jeu en pause) présente le contexte, le problème XOR, les 3 étapes de la mission et les commandes. Il se rappelle à tout moment avec `H`. Pendant la partie, un panneau d'objectifs en haut à gauche coche les étapes et compte les essais.
-2. **Entrée dans le laboratoire** : le joueur arrive dans une salle fermée par une porte. L'écran d'état (Text Render) affiche la mission : « Entraînez un modèle qui résout XOR avec 100 % de précision ».
+1. **Briefing de mission** : au lancement, un écran d'introduction en 4 pages (jeu en pause) présente le contexte, le problème de la serre (avec une mini-carte de la zone de survie), les 3 étapes de la mission et les commandes. Il se rappelle à tout moment avec `H`. Pendant la partie, un panneau d'objectifs en haut à gauche coche les étapes et compte les essais.
+2. **Entrée dans le laboratoire** : le joueur arrive dans une salle fermée par une porte. L'écran d'état (Text Render) affiche la mission « LA SERRE DU LABO » et l'objectif : 95 % de bonnes prédictions.
 3. **Assemblage du réseau sur la Forge** : dans le grand hall, l'atelier propose trois établis de pièces que le joueur attrape (`E`), porte et emboîte :
    - un **module de couche**, inséré dans l'une des 3 fentes de la Forge, ajoute une couche cachée ;
    - chaque **orbe-neurone** posée autour d'un module (jusqu'à 8) ajoute un neurone à cette couche ;
    - un **cristal d'activation** planté sur le module choisit sa fonction (ReLU orange, Tanh violet, Sigmoid vert, Linear bleu ; sans cristal, la couche est Linear) ;
    - le **levier** fait défiler le taux d'apprentissage (0,01 → 2).
 
-   La Forge lit l'assemblage en continu et l'**hologramme géant** reconstruit le réseau en direct : chaque neurone est une sphère émissive, chaque poids un lien coloré selon son signe et épais selon son amplitude. Pour modifier le réseau, il suffit de retirer ou de déplacer une pièce. Pendant l'entraînement, l'assemblage est verrouillé.
-4. **Lancement de l'entraînement** : le joueur marche sur le **bouton au sol**. L'entraînement se déroule progressivement (quelques epochs par frame) pour que l'on voie le réseau apprendre.
-5. **Suivi en direct** : l'écran d'état affiche l'architecture, l'epoch courante, la perte, la précision et les prédictions sur les 4 exemples XOR.
-6. **Validation** : si la précision cible est atteinte, un **son de validation** retentit et la **porte du labo s'ouvre** avec une animation. Sinon, le joueur modifie son architecture et réessaie.
-7. **Sortie** : franchir la porte déclenche l'écran « Mission accomplie » : bilan (architecture, epochs, essais, durée), leçon à retenir, boutons Rejouer / Quitter.
+   La Forge affiche ses entrées (« Eau · Lumière ») et sa sortie (« Survie »). Elle lit l'assemblage en continu et l'**hologramme géant** reconstruit le réseau en direct : chaque neurone est une sphère émissive, chaque poids un lien coloré selon son signe et épais selon son amplitude. Pour modifier le réseau, il suffit de retirer ou de déplacer une pièce. Pendant l'entraînement, l'assemblage est verrouillé.
+4. **Lancement de l'entraînement** : le joueur marche sur le **bouton au sol**. L'entraînement avance exemple par exemple, à 1,2 epoch par seconde : un bon modèle réussit en **10 à 30 secondes**, un modèle qui échoue s'arrête au bout de 33 secondes.
+5. **Suivi en direct** :
+   - l'**hologramme** fait défiler les expériences (« Expérience 21 : eau 6,5 · lumière 6,9 : la plante a survécu. Le modèle dit : 80 % de chances de survie ») ;
+   - l'**écran d'état** donne un bilan en mots simples : bonnes prédictions, plantes vivantes et mortes reconnues, erreur moyenne, et un conseil en cas d'échec ;
+   - le **carnet du labo** affiche les 160 plantes (points verts : survie, rouges : mort) et colore en direct la zone où le modèle pense que la plante survit ; la limite trouvée est surlignée en jaune et les erreurs sont entourées de blanc.
+6. **Validation** : à 95 % de bonnes prédictions, un **son de validation** retentit et la **porte du labo s'ouvre** avec une animation. Sinon, le joueur modifie son architecture et réessaie.
+7. **Phase de test** : près de la porte, un **pot de plante** s'active. Le joueur règle l'**arrosage** et la **lampe** (0 à 10) ; le modèle prédit la survie et la plante se redresse et verdit, ou se penche et brunit. La probabilité s'affiche, ainsi que la réponse de la vraie serre (« le modèle a raison » / « le modèle se trompe »).
+8. **Sortie** : franchir la porte déclenche l'écran « Mission accomplie » : bilan (architecture, réussite, tours d'entraînement, essais, durée), leçon à retenir, boutons Rejouer / Quitter.
 
-| Briefing : accueil | Briefing : la mission | Écran de fin |
+| Briefing : la serre | Briefing : la mission | Écran de fin |
 |:---:|:---:|:---:|
-| ![Briefing](Docs/Images/NF_Intro.png) | ![Mission](Docs/Images/NF_IntroMission.png) | ![Fin](Docs/Images/NF_Fin.png) |
+| ![Briefing](Docs/Images/NF_IntroSerre.png) | ![Mission](Docs/Images/NF_IntroMission.png) | ![Fin](Docs/Images/NF_Fin.png) |
+
+| Le carnet pendant l'entraînement | Test : plante en bonne santé | Test : plante qui fane |
+|:---:|:---:|:---:|
+| ![Carnet](Docs/Images/NF_CarnetEntrainement.png) | ![Pot sain](Docs/Images/NF_PotSain.png) | ![Pot fané](Docs/Images/NF_PotFane.png) |
 
 | Pendant l'entraînement | Baies de serveurs et passerelles | Porte du labo |
 |:---:|:---:|:---:|
@@ -86,7 +99,8 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible 
 | **Trigger Box Collision** | Le bouton au sol détecte le joueur par overlap pour lancer l'entraînement ; une zone de fin de niveau détecte la sortie du labo. |
 | **Porte animée** | La porte du labo s'ouvre via une timeline (courbe d'animation) en C++ lorsque la précision cible est atteinte. |
 | **Bouton au sol** | Plaque de pression qui s'enfonce et s'illumine quand le joueur marche dessus, puis démarre l'entraînement. |
-| **Text Render** | Affichage dans le monde 3D de la mission, de l'état de l'entraînement (epoch, perte, précision) et des libellés des panneaux. |
+| **Text Render** | Affichage dans le monde 3D de la mission, du bilan de l'entraînement, des légendes du carnet du labo, des réglages et du verdict du pot de plante. |
+| **Texture dynamique** | Le carnet du labo dessine en C++ une texture mise à jour en direct : la frontière de décision du modèle se colore pendant l'entraînement. |
 | **Son de validation** | Son joué à la réussite du modèle, au moment de l'ouverture de la porte. |
 | **Materials émissifs** | Les neurones brillent selon leur fonction d'activation (couleur) et leur valeur d'activation (intensité), grâce à des Material Instances dynamiques. |
 | **Interactions multimodales** | Une interface d'interaction commune (`INFInteractable`) sépare l'objet interactif de la manière d'interagir (visée + touche sur PC, et plus tard main/contrôleur en VR). La prise en main des pièces (`UNFGrabberComponent`) accepte elle aussi une main VR comme source (`SetHoldSource`). |
@@ -107,7 +121,8 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible 
 | Domaine | Classes | Rôle |
 |---|---|---|
 | Réseau de neurones | `FNFNeuralNetwork`, `FNFDenseLayer`, `FNFLayerConfig`, `ENFActivation` | Perceptron multicouche en C++ pur : propagation avant, rétropropagation, SGD avec mélange des exemples, initialisation Xavier/He, perte choisie automatiquement (entropie croisée binaire avec une sortie Sigmoid, MSE sinon). |
-| Données | `FNFDataset` | Datasets d'entraînement (XOR pour le MVP). |
+| Données | `FNFDataset` | Datasets d'entraînement : la serre (`MakeGreenhouse`, 160 expériences, valeurs brutes et normalisées, règle `GreenhouseSurvives`) et XOR (tests). |
+| Entraînement | `ENFProblem`, `FNFTrainingProfile`, `FNFGreenhouseProfile` | Problème du niveau et réglages calibrés (précision et perte cibles, epochs max, vitesse, taux de départ). |
 | Entraînement | `UNFTrainerComponent` | Entraînement réparti sur les frames (epochs par seconde réglables) ; états Idle / Training / Succeeded / Failed ; cible : précision 100 % **et** perte < 0,1 ; échec après 2000 epochs ; événements `OnStateChanged` et `OnProgress`. |
 | Interaction | `INFInteractable` | Interface commune à tous les objets interactifs : `CanInteract`, `Interact`, `OnFocusBegin`, `OnFocusEnd`, `GetInteractionPrompt`. L'objet ne sait pas comment on interagit avec lui. |
 | Interaction | `UNFInteractorComponent` | Ce qui interagit : un rayon depuis la caméra (PC) ou depuis un composant quelconque via `SetTraceSource` (contrôleur VR), et `InteractWith` pour un contact direct (main VR). |
@@ -130,12 +145,14 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible 
 | Labo | `ANFStatusDisplay` | Écran d'état en Text Render : mission, architecture, epoch, perte, précision, prédictions sur les 4 cas, conseil. |
 | Labo | `ANFLabDoor` | Porte coulissante animée par une timeline (`FTimeline` + courbe ease-in-out) ; s'ouvre à la réussite avec le son de validation ; voyant rouge → vert. |
 | Labo | `ANFExitTrigger` | Zone de fin de niveau (Box Collision) derrière la porte. |
+| Serre | `ANFLabNotebook` | Carnet du labo : graphique eau / lumière des expériences et frontière de décision en direct, dessinés dans une texture dynamique. |
+| Serre | `ANFPlantPot`, `ANFPlantControl` | Phase de test : pot de plante dont l'aspect suit la prédiction du modèle, commandes Arrosage et Lampe, comparaison avec la vraie serre. |
 | Ambiance | `ANFLabAmbience` | Ambiance réactive : couleur et intensité envoyées à la Material Parameter Collection `MPC_NF_Lab` et aux lumières taguées `NFMood` (cyan au repos, orange pulsé pendant l'entraînement, flash vert à la réussite, alerte rouge à l'échec). |
 | Ambiance | `ANFAnimatedProp` | Décor animé : rotation, flottement, couronne d'objets en orbite, accélère pendant l'entraînement (hologrammes, cubes de données). |
 
 **Décor du labo** : ambiance sombre de laboratoire de nuit, sol miroir quadrillé de lignes lumineuses, liserés néon sur les murs, les piliers, la porte et les panneaux, baies de serveurs couvertes de LED qui clignotent, socle et anneau holographiques animés au-dessus de l'holotable, cubes de données en orbite, brume volumétrique. Des impulsions lumineuses parcourent les poids du réseau, plus vite pendant l'entraînement. Toute la salle change de couleur selon l'état du modèle.
 
-**Parcours pédagogique prévu** : la Forge vide (aucune couche cachée) échoue (« XOR n'est pas linéairement séparable ») ; un module garni d'orbes mais sans cristal est Linear et échoue aussi (« des couches Linear empilées restent linéaires ») ; avec un cristal Tanh, ReLU ou Sigmoid et assez d'orbes, le modèle réussit et la porte s'ouvre.
+**Parcours pédagogique prévu** : la Forge vide (aucune couche cachée) plafonne à 70 % (« le modèle ne trace qu'une ligne droite : impossible d'entourer la zone où la plante survit ») ; un module garni d'orbes mais sans cristal est Linear et échoue aussi ; avec 1 à 3 orbes, la couche manque de capacité ; avec 4 à 6 orbes et un cristal ReLU ou Tanh (taux 0,1), le modèle dépasse 95 % en 8 à 28 secondes, la porte s'ouvre et le pot de plante s'active.
 
 ### Arborescence
 
@@ -331,18 +348,18 @@ Mesures du test `Greenhouse.Calibration` (même procédure d'entraînement que l
 | 9 | La serre : dataset, calibrage, holotable / Forge / écran d'état en mode serre | ✅ Terminé |
 | 10 | Carnet du labo (frontière de décision en direct) | ✅ Terminé |
 | 11 | Phase de test : le pot de plante | ✅ Terminé |
-| 12 | Textes, tests et README pour la serre | ⏳ En cours |
+| 12 | Textes, tests et README pour la serre | ✅ Terminé |
 
 ---
 
 ## Roadmap
 
-**MVP : niveau XOR jouable de bout en bout**
-- Construction du réseau, entraînement visible, validation par la porte.
+**Réalisé**
+- Niveau XOR jouable de bout en bout (MVP), puis Forge à pièces dans un grand hall.
+- Problème concret de la serre, carnet du labo avec frontière de décision en direct, phase de test sur un pot de plante.
 
 **Après le MVP**
-- **Nouveaux niveaux et datasets** : cercles concentriques, spirales, classification multi-classes, chacun avec sa propre précision cible.
-- **Visualisation de la frontière de décision** sur un écran du labo.
+- **Nouveaux niveaux et datasets** : spirales, plusieurs espèces de plantes (classification multi-classes), données réelles, chacun avec sa propre précision cible ; séparation apprentissage / test pour parler de sur-apprentissage.
 - **Optimiseurs supplémentaires** (Momentum, Adam) et choix de la fonction de perte.
 - **Mode réalité virtuelle** : interactions à la main ou au contrôleur grâce à l'interface `INFInteractable` et au `UNFGrabberComponent` déjà prévus pour une main VR.
 - **Interface UMG** pour le menu principal et les explications pédagogiques.

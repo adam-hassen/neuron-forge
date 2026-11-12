@@ -11,6 +11,7 @@ struct FNFMissionSummary
 	FString Architecture;
 	float LearningRate = 0.f;
 	int32 Epochs = 0;
+	float Accuracy = 0.f;
 	int32 Attempts = 0;
 	float FinalLoss = 0.f;
 	float Seconds = 0.f;
