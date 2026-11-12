@@ -37,6 +37,46 @@ struct PROJETNEURO_API FNFTrainingProgress
 	float Accuracy = 0.f;
 };
 
+/** Problème à résoudre dans le labo. */
+UENUM(BlueprintType)
+enum class ENFProblem : uint8
+{
+	/** Le OU exclusif : 4 exemples (tests, démonstration). */
+	XOR			UMETA(DisplayName = "XOR"),
+	/** La serre : survie d'une plante selon l'eau et la lumière (niveau jouable). */
+	Greenhouse	UMETA(DisplayName = "Serre"),
+};
+
+/** Réglages d'entraînement d'un problème. */
+struct FNFTrainingProfile
+{
+	float TargetAccuracy = 1.f;
+	float TargetLoss = 0.1f;
+	int32 MaxEpochs = 2000;
+	float EpochsPerSecond = 120.f;
+	/** Cran du levier au départ (0,01 / 0,05 / 0,1 / 0,3 / 0,5 / 1 / 2). */
+	int32 DefaultLearningRateIndex = 4;
+};
+
+/**
+ * Réglages de la serre, calibrés par le test NeuronForge.Greenhouse.Calibration :
+ * le modèle linéaire plafonne à 70 %, une couche de 4 à 6 neurones Tanh ou ReLU (taux 0,1)
+ * dépasse 95 % en 10 à 33 epochs, soit 8 à 28 secondes de jeu à 1,2 epoch par seconde ;
+ * un modèle qui échoue s'arrête après 40 epochs (33 secondes).
+ * La perte cible est large : avec le bruit de mesure, elle ne descend pas sous ~0,08.
+ */
+struct FNFGreenhouseProfile : public FNFTrainingProfile
+{
+	FNFGreenhouseProfile()
+	{
+		TargetAccuracy = 0.95f;
+		TargetLoss = 0.3f;
+		MaxEpochs = 40;
+		EpochsPerSecond = 1.2f;
+		DefaultLearningRateIndex = 2;
+	}
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FNFOnTrainingStateChanged, ENFTrainingState, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FNFOnTrainingProgress, const FNFTrainingProgress&, Progress);
 
@@ -63,6 +103,12 @@ public:
 	/** Remplace le dataset (XOR par défaut) et reconstruit le réseau. */
 	void SetDataset(const FNFDataset& InDataset);
 
+	/** Applique la précision, la perte, le nombre d'epochs et la vitesse d'un profil. */
+	void ApplyProfile(const FNFTrainingProfile& Profile);
+
+	/** Sortie du réseau (premier neurone) pour des entrées déjà normalisées. Ne modifie pas les poids. */
+	float Predict(float InputA, float InputB);
+
 	/** Réinitialise les poids et démarre l'entraînement. Faux si un entraînement est déjà en cours. */
 	UFUNCTION(BlueprintCallable, Category = "Neuron Forge|Training")
 	bool StartTraining();
@@ -71,8 +117,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Neuron Forge|Training")
 	void StopTraining();
 
-	/** Exécute jusqu'à NumEpochs epochs immédiatement (utilisé par Tick et par les tests). */
+	/** Exécute NumEpochs epochs complètes immédiatement (tests, accélération). */
 	void Advance(int32 NumEpochs);
+
+	/** Entraîne sur NumSamples exemples, en continuant l'epoch en cours (utilisé par Tick). */
+	void AdvanceSamples(int32 NumSamples);
 
 	/** Sortie du réseau (premier neurone de sortie) pour chaque exemple du dataset. */
 	void GetPredictions(TArray<float>& OutPredictions);
@@ -129,11 +178,17 @@ private:
 	void RebuildNetwork();
 	void SetState(ENFTrainingState NewState);
 
+	/** Entraîne sur l'exemple suivant de l'epoch ; termine l'epoch quand elle est complète. */
+	void TrainNextSample();
+	void FinishEpoch();
+
 	FNFNeuralNetwork Network;
 	FNFDataset Dataset;
 	TArray<FNFLayerConfig> HiddenConfig;
 	TArray<float> LossHistory;
 	FRandomStream ShuffleRng;
+	TArray<int32> ShuffleOrder;
+	int32 SampleCursor = 0;
 	FNFTrainingProgress Progress;
 	ENFTrainingState State = ENFTrainingState::Idle;
 	float LearningRate = 0.5f;

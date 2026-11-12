@@ -253,6 +253,8 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `GradientCheck` | Les gradients de la rétropropagation correspondent aux dérivées numériques (écart < 0,0002). |
 | `XORSolved` | `2 - 4 Tanh - 1 Sigmoid` résout XOR (100 %). |
 | `XORLinearFails` | Sans couche cachée, ou avec une couche cachée Linear, XOR reste à 50 % : **la non-linéarité est indispensable**. |
+| `Greenhouse.Dataset` | Serre : 160 expériences reproductibles, entrées brutes 0-10 et normalisées -1/1, 25 à 50 % de survies, un peu de bruit (moins de 10 %), règle de la zone de survie. |
+| `Greenhouse.Calibration` | Mesures ci-dessous ; vérifie que le linéaire plafonne sous 80 % et que 4 à 6 neurones Tanh ou ReLU (taux 0,1) atteignent 95 % en moins de 40 epochs. |
 | `Interaction.Interactor` | Dans un monde de test : rayon, distance maximale, focus et surbrillance, interaction, objet désactivé, source de visée de type contrôleur VR, interaction directe sans rayon. |
 | `Lab.BuilderEditing` | Actions de configuration et leurs limites, verrouillage pendant l'entraînement, bouton lié à une couche absente puis présente. |
 | `Lab.FloorButtonStartsTraining` | Un pawn qui entre dans la Box Collision du bouton au sol lance l'entraînement ; le bouton se relâche quand il repart. |
@@ -268,7 +270,33 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 
 **Captures de contrôle visuel** (`Smoke.Screenshots`) : il capture les 4 pages du briefing, 6 vues du labo au repos (entrée, holotable, console, mode d'emploi, porte, serveurs), une vue pendant l'entraînement et l'écran de fin dans `Saved/Screenshots/NF_*.png`. Il demande un vrai rendu : remplacer `-nullrhi` par `-RenderOffscreen -ResX=1280 -ResY=720` dans la commande ci-dessus.
 
-**Mesures de calibrage** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
+### Calibrage de la serre
+
+Le niveau jouable utilise le problème de la serre : **160 expériences** (graine 2026), eau et lumière entre 0 et 10, la plante survit dans une zone ovale au milieu (centre eau 5 / lumière 5,5, rayons 3,3 et 3,1). Un bruit de mesure (écart-type 0,35) rend **7 expériences trompeuses** près de la frontière ; **30 %** des plantes survivent. Les entrées sont normalisées entre -1 et 1 pour le réseau.
+
+Mesures du test `Greenhouse.Calibration` (même procédure d'entraînement que le jeu : SGD exemple par exemple, poids graine 42) :
+
+| Architecture | Taux | 95 % atteint en | Meilleure précision |
+|---|:---:|:---:|:---:|
+| sans couche cachée | 0,5 | jamais | 70 % (répond toujours « meurt ») |
+| 8 Linear / 8 Linear + 8 Linear | 0,1 | jamais | 70 % |
+| 2 ou 3 Tanh | 0,5 | jamais | 82-83 % |
+| 3 Tanh | 0,1 | 50 epochs (au-delà du maximum) | 96 % |
+| **4 ReLU** | 0,1 | **10 epochs** | 98 % |
+| **5 ReLU** | 0,1 | **16 epochs** | 99 % |
+| **6 ReLU** | 0,1 | **11 epochs** | 99 % |
+| **4 Tanh** | 0,1 | **33 epochs** | 96 % |
+| **5 Tanh** | 0,1 | **23 epochs** | 98 % |
+| **6 Tanh** | 0,1 | **23 epochs** | 98 % |
+| 4 Tanh + 4 Tanh | 0,1 | 30 epochs | 99 % |
+| 6 Sigmoid | 1,0 | 108 epochs | 95 % |
+| 5 Tanh | 0,5 | jamais | 83 % (taux trop fort) |
+| 5 Tanh | 2,0 | jamais | 89 % (instable) |
+| 5 Tanh | 0,01 | 176 epochs | 98 % (taux trop faible) |
+
+**Réglages retenus** (`FNFGreenhouseProfile`) : précision cible **95 %** (le modèle linéaire plafonne à 70 %, le bruit empêche d'atteindre 100 %), perte cible 0,3, **40 epochs au maximum**, **1,2 epoch par seconde**, taux d'apprentissage de départ **0,1**. Un bon modèle réussit donc en **8 à 28 secondes** de jeu ; un modèle qui échoue s'arrête au bout de 33 secondes. L'entraînement avance exemple par exemple, si bien que l'hologramme et la frontière de décision évoluent en continu.
+
+**Mesures de calibrage XOR** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
 
 | Architecture | Taux d'apprentissage | Résultat |
 |---|:---:|---|

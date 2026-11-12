@@ -28,6 +28,20 @@ void UNFTrainerComponent::Configure(const TArray<FNFLayerConfig>& HiddenLayers, 
 	SetState(ENFTrainingState::Idle);
 }
 
+void UNFTrainerComponent::ApplyProfile(const FNFTrainingProfile& Profile)
+{
+	TargetAccuracy = Profile.TargetAccuracy;
+	TargetLoss = Profile.TargetLoss;
+	MaxEpochs = Profile.MaxEpochs;
+	EpochsPerSecond = Profile.EpochsPerSecond;
+}
+
+float UNFTrainerComponent::Predict(float InputA, float InputB)
+{
+	const float Input[2] = { InputA, InputB };
+	return Network.GetNumInputs() == 2 ? Network.Forward(Input)[0] : 0.f;
+}
+
 void UNFTrainerComponent::SetDataset(const FNFDataset& InDataset)
 {
 	check(InDataset.IsValid());
@@ -46,6 +60,12 @@ bool UNFTrainerComponent::StartTraining()
 	// Chaque essai repart de poids neufs : même architecture + même graine = même résultat
 	Network.InitializeWeights(Seed);
 	ShuffleRng.Initialize(Seed + 1);
+	ShuffleOrder.SetNum(Dataset.Num());
+	for (int32 s = 0; s < ShuffleOrder.Num(); ++s)
+	{
+		ShuffleOrder[s] = s;
+	}
+	SampleCursor = Dataset.Num();	// une nouvelle epoch commencera au premier exemple
 	Progress = FNFTrainingProgress();
 	LossHistory.Reset();
 	EpochAccumulator = 0.f;
@@ -79,48 +99,83 @@ void UNFTrainerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 		return;
 	}
 
-	EpochAccumulator += DeltaTime * EpochsPerSecond;
-	const int32 NumEpochs = FMath::FloorToInt32(EpochAccumulator);
-	if (NumEpochs > 0)
+	// Avance exemple par exemple : les poids (et donc l'hologramme) évoluent en continu
+	EpochAccumulator += DeltaTime * EpochsPerSecond * Dataset.Num();
+	const int32 NumSamples = FMath::Min(FMath::FloorToInt32(EpochAccumulator), 4000);
+	if (NumSamples > 0)
 	{
-		EpochAccumulator -= NumEpochs;
-		Advance(NumEpochs);
+		EpochAccumulator -= NumSamples;
+		AdvanceSamples(NumSamples);
+	}
+}
+
+void UNFTrainerComponent::AdvanceSamples(int32 NumSamples)
+{
+	for (int32 i = 0; i < NumSamples && State == ENFTrainingState::Training; ++i)
+	{
+		TrainNextSample();
+	}
+}
+
+void UNFTrainerComponent::TrainNextSample()
+{
+	const int32 NumSamples = Dataset.Num();
+	if (NumSamples == 0)
+	{
+		return;
+	}
+
+	// Début d'epoch : nouvel ordre de passage (même mélange que FNFNeuralNetwork::TrainEpoch)
+	if (SampleCursor >= NumSamples)
+	{
+		for (int32 s = NumSamples - 1; s > 0; --s)
+		{
+			ShuffleOrder.Swap(s, ShuffleRng.RandRange(0, s));
+		}
+		SampleCursor = 0;
+	}
+
+	const int32 Index = ShuffleOrder[SampleCursor++];
+	Network.TrainSample(Dataset.GetInput(Index), Dataset.GetTarget(Index), LearningRate);
+
+	if (SampleCursor >= NumSamples)
+	{
+		FinishEpoch();
+	}
+}
+
+void UNFTrainerComponent::FinishEpoch()
+{
+	++Progress.Epoch;
+	const FNFEvaluation Evaluation = Network.Evaluate(Dataset);
+	Progress.Loss = Evaluation.Loss;
+	Progress.Accuracy = Evaluation.Accuracy;
+	LossHistory.Add(Evaluation.Loss);
+	OnProgress.Broadcast(Progress);
+
+	if (IsTargetReached(Evaluation))
+	{
+		UE_LOG(LogNeuronForge, Log, TEXT("Modèle validé en %d epochs (précision %.1f %%, perte %.4f)"),
+			Progress.Epoch, Progress.Accuracy * 100.f, Progress.Loss);
+		SetState(ENFTrainingState::Succeeded);
+	}
+	else if (Progress.Epoch >= MaxEpochs)
+	{
+		UE_LOG(LogNeuronForge, Log, TEXT("Échec après %d epochs (précision %.0f %%, perte %.4f)"),
+			Progress.Epoch, Progress.Accuracy * 100.f, Progress.Loss);
+		SetState(ENFTrainingState::Failed);
 	}
 }
 
 void UNFTrainerComponent::Advance(int32 NumEpochs)
 {
-	if (State != ENFTrainingState::Training || NumEpochs <= 0)
+	for (int32 e = 0; e < NumEpochs && State == ENFTrainingState::Training; ++e)
 	{
-		return;
-	}
-
-	for (int32 i = 0; i < NumEpochs && Progress.Epoch < MaxEpochs; ++i)
-	{
-		Network.TrainEpoch(Dataset, LearningRate, ShuffleRng);
-		++Progress.Epoch;
-
-		const FNFEvaluation Evaluation = Network.Evaluate(Dataset);
-		Progress.Loss = Evaluation.Loss;
-		Progress.Accuracy = Evaluation.Accuracy;
-		LossHistory.Add(Evaluation.Loss);
-
-		if (IsTargetReached(Evaluation))
+		const int32 StartEpoch = Progress.Epoch;
+		while (State == ENFTrainingState::Training && Progress.Epoch == StartEpoch)
 		{
-			UE_LOG(LogNeuronForge, Log, TEXT("Modèle validé en %d epochs (perte %.4f)"), Progress.Epoch, Progress.Loss);
-			OnProgress.Broadcast(Progress);
-			SetState(ENFTrainingState::Succeeded);
-			return;
+			TrainNextSample();
 		}
-	}
-
-	OnProgress.Broadcast(Progress);
-
-	if (Progress.Epoch >= MaxEpochs)
-	{
-		UE_LOG(LogNeuronForge, Log, TEXT("Échec après %d epochs (précision %.0f %%, perte %.4f)"),
-			Progress.Epoch, Progress.Accuracy * 100.f, Progress.Loss);
-		SetState(ENFTrainingState::Failed);
 	}
 }
 
