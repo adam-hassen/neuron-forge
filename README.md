@@ -130,6 +130,7 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible 
 | Domaine | Classes | Rôle |
 |---|---|---|
 | Réseau de neurones | `FNFNeuralNetwork`, `FNFDenseLayer`, `FNFLayerConfig`, `ENFActivation` | Perceptron multicouche en C++ pur : propagation avant, rétropropagation, SGD avec mélange des exemples, initialisation Xavier/He, perte choisie automatiquement (entropie croisée binaire avec une sortie Sigmoid, MSE sinon). |
+| Données | `FNFExperimentSet`, `FNFExperiment`, `ENFDataDefect` | Les 200 expériences brutes de la serre : 160 bonnes (graine 2026) et 40 corrompues (10 valeurs impossibles, 10 valeurs manquantes, 10 doublons, 10 étiquettes fausses), mélangées. Découpage entraînement / validation reproductible (60/40 à 90/10, ou « petit lot » de 20), scanner des étiquettes qui contredisent leurs voisines, conversion en dataset : ce qui n'a pas été nettoyé est lu tel quel (une valeur manquante devient 0). |
 | Données | `FNFDataset` | Datasets d'entraînement : la serre (`MakeGreenhouse`, 160 expériences, valeurs brutes et normalisées, règle `GreenhouseSurvives`) et XOR (tests). |
 | Entraînement | `ENFProblem`, `FNFTrainingProfile`, `FNFGreenhouseProfile` | Problème du niveau et réglages calibrés (précision et perte cibles, epochs max, vitesse, taux de départ). |
 | Entraînement | `UNFTrainerComponent` | Entraînement réparti sur les frames (epochs par seconde réglables) ; états Idle / Training / Succeeded / Failed ; cible : précision 100 % **et** perte < 0,1 ; échec après 2000 epochs ; événements `OnStateChanged` et `OnProgress`. |
@@ -331,6 +332,28 @@ Mesures du test `Greenhouse.Calibration` (même procédure d'entraînement que l
 | 5 Tanh | 0,01 | 176 epochs | 98 % (taux trop faible) |
 
 **Réglages retenus** (`FNFGreenhouseProfile`) : précision cible **95 %** (le modèle linéaire plafonne à 70 %, le bruit empêche d'atteindre 100 %), perte cible 0,3, **40 epochs au maximum**, **1,2 epoch par seconde**, taux d'apprentissage de départ **0,1**. Un bon modèle réussit donc en **8 à 28 secondes** de jeu ; un modèle qui échoue s'arrête au bout de 33 secondes. L'entraînement avance exemple par exemple, si bien que l'hologramme et la frontière de décision évoluent en continu.
+
+### Calibrage du cycle des données
+
+L'entraînement de la serre utilise désormais deux jeux : le modèle apprend sur le bac **Entraînement** et la réussite se juge sur le bac **Validation** (des expériences qu'il n'a jamais vues), avec une précision de validation moyennée sur 3 epochs. Le rythme est fixé en exemples : **100 exemples par seconde, 3200 au plus (32 s)**, si bien qu'un petit jeu d'entraînement fait plus d'epochs dans le même temps de jeu.
+
+Mesures du test `Data.Calibration` (vrai composant d'entraînement, 5 ReLU, taux 0,1, découpage 70/30, **8 découpages différents** pour ne pas conclure sur un coup de chance) :
+
+| Données d'entraînement | Réussites (validation ≥ 88 %) | Précision de validation |
+|---|:---:|---|
+| Propres, 5 ReLU | **8/8**, en 9 à 25 s | 90-96 % |
+| Propres, gros réseau 6-6-6 ReLU | **8/8** | 90-96 % |
+| Propres, 5 Tanh | 3/8 (Tanh apprend plus lentement au taux 0,1) | 77-94 % |
+| 3 défauts restants (1 impossible, 1 manquant, 1 étiquette fausse) | 7/8 | 86-96 % |
+| 1 défaut de chaque type (4 restants) | 3/8 | 76-92 % |
+| Tous les défauts (40) | **0/8** | 65-77 % |
+| Petit lot de 20 expériences, 5 ReLU | 1/8 | entraînement 95-100 %, validation 76-90 % |
+
+Avec un seul découpage (graine 7), chaque type de défaut laissé seul fait chuter la validation : valeurs impossibles 63 %, étiquettes fausses 74 %, valeurs manquantes 86 % ; les doublons ont peu d'effet (90 %).
+
+**Choix qui en découlent** : précision de validation cible **88 %** (la validation ne compte qu'une cinquantaine d'expériences, sa note varie de quelques points d'un découpage à l'autre) ; la porte vers la Forge s'ouvre quand il reste **au plus 3 défauts**.
+
+**Surapprentissage, constat honnête** : sur ce problème à deux entrées, un réseau trop gros ne surapprend pas de façon visible. Le 6-6-6 (le plus gros possible avec 20 orbes) réussit aussi bien que le 5 ReLU. Une simulation hors jeu sur 5 graines donne le même résultat pour un 3 × 16, même après 300 à 800 epochs. Ce qui provoque vraiment un surapprentissage reproductible, c'est le **manque de données** : avec un petit lot de 20 expériences, le modèle apprend ses exemples par cœur (95 à 100 %) mais ne fait que 76 à 90 % sur la validation. Le jeu le montre avec l'expérience « Petit lot » et dit clairement que, sur ce problème, la taille du réseau compte peu.
 
 **Mesures de calibrage XOR** (graine 42, arrêt à 100 % de précision et perte < 0,1) :
 

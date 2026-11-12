@@ -72,6 +72,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Neuron Forge|Network")
 	FString GetActionLabel(ENFConfigAction Action, int32 LayerIndex = 0) const;
 
+	/**
+	 * Données d'entraînement choisies par le joueur (salle des données) : le modèle apprend sur Train
+	 * et la réussite se juge sur Validation. Interrompt un entraînement en cours.
+	 */
+	void SetTrainingData(const FNFDataset& Train, const FNFDataset& Validation);
+
+	/** Vrai si les données viennent de la salle des données (et non du jeu par défaut). */
+	bool HasCustomTrainingData() const { return bCustomTrainingData; }
+
 	/** Remplace toute la configuration (tests, niveaux scénarisés). */
 	void SetConfiguration(const TArray<FNFLayerConfig>& InHiddenLayers, int32 InLearningRateIndex);
 
@@ -120,6 +129,10 @@ public:
 	const FString& GetSuccessArchitecture() const { return SuccessArchitecture; }
 	float GetSuccessLearningRate() const { return SuccessLearningRate; }
 	const FNFTrainingProgress& GetSuccessProgress() const { return SuccessProgress; }
+
+	/** Graine du découpage par défaut (sans salle des données) : 70 % entraînement, 30 % validation. */
+	static constexpr int32 DefaultSplitSeed = 7;
+	static constexpr float DefaultTrainFraction = 0.7f;
 
 	/** Déclenché à chaque modification de la configuration ou changement d'état d'entraînement. */
 	UPROPERTY(BlueprintAssignable, Category = "Neuron Forge|Network")
@@ -275,6 +288,7 @@ protected:
 private:
 	int32 TrainingAttempts = 0;
 	bool bHasSucceeded = false;
+	bool bCustomTrainingData = false;
 	FString SuccessArchitecture;
 	float SuccessLearningRate = 0.f;
 	FNFTrainingProgress SuccessProgress;

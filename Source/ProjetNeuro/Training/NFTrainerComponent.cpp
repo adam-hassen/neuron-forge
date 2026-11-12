@@ -17,7 +17,22 @@ void UNFTrainerComponent::RebuildNetwork()
 	Network.Build(Dataset.NumInputs, HiddenConfig, Dataset.NumOutputs, ENFActivation::Sigmoid, Seed);
 	Progress = FNFTrainingProgress();
 	LossHistory.Reset();
+	AccuracyHistory.Reset();
+	ValidationHistory.Reset();
 	EpochAccumulator = 0.f;
+}
+
+void UNFTrainerComponent::ApplyRate()
+{
+	// Rythme en exemples : même durée de jeu quelle que soit la taille du jeu d'entraînement
+	if (SamplesPerSecond > 0.f && Dataset.Num() > 0)
+	{
+		EpochsPerSecond = SamplesPerSecond / Dataset.Num();
+	}
+	if (MaxTrainingSamples > 0 && Dataset.Num() > 0)
+	{
+		MaxEpochs = FMath::Max(1, FMath::CeilToInt32(static_cast<float>(MaxTrainingSamples) / Dataset.Num()));
+	}
 }
 
 void UNFTrainerComponent::Configure(const TArray<FNFLayerConfig>& HiddenLayers, float InLearningRate)
@@ -34,6 +49,25 @@ void UNFTrainerComponent::ApplyProfile(const FNFTrainingProfile& Profile)
 	TargetLoss = Profile.TargetLoss;
 	MaxEpochs = Profile.MaxEpochs;
 	EpochsPerSecond = Profile.EpochsPerSecond;
+	SamplesPerSecond = Profile.SamplesPerSecond;
+	MaxTrainingSamples = Profile.MaxTrainingSamples;
+	TargetValidationAccuracy = Profile.TargetValidationAccuracy;
+	ApplyRate();
+}
+
+float UNFTrainerComponent::GetSmoothedValidationAccuracy() const
+{
+	const int32 Count = FMath::Min(ValidationSmoothing, ValidationHistory.Num());
+	if (Count == 0)
+	{
+		return Progress.ValidationAccuracy;
+	}
+	float Sum = 0.f;
+	for (int32 i = ValidationHistory.Num() - Count; i < ValidationHistory.Num(); ++i)
+	{
+		Sum += ValidationHistory[i];
+	}
+	return Sum / Count;
 }
 
 float UNFTrainerComponent::Predict(float InputA, float InputB)
@@ -46,6 +80,18 @@ void UNFTrainerComponent::SetDataset(const FNFDataset& InDataset)
 {
 	check(InDataset.IsValid());
 	Dataset = InDataset;
+	Validation = FNFDataset();
+	ApplyRate();
+	RebuildNetwork();
+	SetState(ENFTrainingState::Idle);
+}
+
+void UNFTrainerComponent::SetDatasets(const FNFDataset& InTrain, const FNFDataset& InValidation)
+{
+	check(InTrain.IsValid());
+	Dataset = InTrain;
+	Validation = InValidation.IsValid() ? InValidation : FNFDataset();
+	ApplyRate();
 	RebuildNetwork();
 	SetState(ENFTrainingState::Idle);
 }
@@ -68,11 +114,14 @@ bool UNFTrainerComponent::StartTraining()
 	SampleCursor = Dataset.Num();	// une nouvelle epoch commencera au premier exemple
 	Progress = FNFTrainingProgress();
 	LossHistory.Reset();
+	AccuracyHistory.Reset();
+	ValidationHistory.Reset();
 	EpochAccumulator = 0.f;
 
 	const FNFEvaluation Initial = Network.Evaluate(Dataset);
 	Progress.Loss = Initial.Loss;
 	Progress.Accuracy = Initial.Accuracy;
+	Progress.ValidationAccuracy = HasValidation() ? Network.Evaluate(Validation).Accuracy : -1.f;
 
 	UE_LOG(LogNeuronForge, Log, TEXT("Entraînement : %s, lr %.3f, %d epochs max"),
 		*Network.Describe(), LearningRate, MaxEpochs);
@@ -151,12 +200,18 @@ void UNFTrainerComponent::FinishEpoch()
 	Progress.Loss = Evaluation.Loss;
 	Progress.Accuracy = Evaluation.Accuracy;
 	LossHistory.Add(Evaluation.Loss);
+	AccuracyHistory.Add(Evaluation.Accuracy);
+	if (HasValidation())
+	{
+		Progress.ValidationAccuracy = Network.Evaluate(Validation).Accuracy;
+		ValidationHistory.Add(Progress.ValidationAccuracy);
+	}
 	OnProgress.Broadcast(Progress);
 
 	if (IsTargetReached(Evaluation))
 	{
-		UE_LOG(LogNeuronForge, Log, TEXT("Modèle validé en %d epochs (précision %.1f %%, perte %.4f)"),
-			Progress.Epoch, Progress.Accuracy * 100.f, Progress.Loss);
+		UE_LOG(LogNeuronForge, Log, TEXT("Modèle validé en %d epochs (entraînement %.1f %%, validation %.1f %%, perte %.4f)"),
+			Progress.Epoch, Progress.Accuracy * 100.f, Progress.ValidationAccuracy * 100.f, Progress.Loss);
 		SetState(ENFTrainingState::Succeeded);
 	}
 	else if (Progress.Epoch >= MaxEpochs)
@@ -181,6 +236,12 @@ void UNFTrainerComponent::Advance(int32 NumEpochs)
 
 bool UNFTrainerComponent::IsTargetReached(const FNFEvaluation& Evaluation) const
 {
+	if (HasValidation())
+	{
+		// Ce qui compte : bien répondre sur des exemples jamais vus (moyenne des dernières epochs)
+		return ValidationHistory.Num() >= ValidationSmoothing
+			&& GetSmoothedValidationAccuracy() >= TargetValidationAccuracy - KINDA_SMALL_NUMBER;
+	}
 	return Evaluation.Accuracy >= TargetAccuracy - KINDA_SMALL_NUMBER && Evaluation.Loss <= TargetLoss;
 }
 

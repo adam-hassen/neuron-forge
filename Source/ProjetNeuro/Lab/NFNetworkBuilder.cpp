@@ -6,6 +6,7 @@
 #include "Components/TextRenderComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Kismet/GameplayStatics.h"
+#include "NeuralNetwork/NFExperimentSet.h"
 #include "Player/NFPlayerController.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -451,14 +452,30 @@ void ANFNetworkBuilder::EnsureProblemLoaded()
 	}
 	if (IsGreenhouse())
 	{
-		Trainer->SetDataset(FNFDataset::MakeGreenhouse());
+		// Par défaut (sans salle des données) : les bonnes expériences, découpées 70 / 30
+		const FNFExperimentSet Experiments = FNFExperimentSet::MakeGreenhouse();
+		TArray<int32> Train, Validation;
+		FNFExperimentSet::Split(Experiments.CleanIndices(), DefaultTrainFraction, DefaultSplitSeed, Train, Validation);
 		Trainer->ApplyProfile(FNFGreenhouseProfile());
+		Trainer->SetDatasets(Experiments.ToDataset(Train), Experiments.ToDataset(Validation));
 	}
 	else
 	{
 		Trainer->SetDataset(FNFDataset::MakeXOR());
 		Trainer->ApplyProfile(FNFTrainingProfile());
 	}
+}
+
+void ANFNetworkBuilder::SetTrainingData(const FNFDataset& Train, const FNFDataset& Validation)
+{
+	if (!Trainer || !Train.IsValid())
+	{
+		return;
+	}
+	EnsureProblemLoaded();
+	bCustomTrainingData = true;
+	Trainer->SetDatasets(Train, Validation);
+	ApplyConfigToTrainer();
 }
 
 void ANFNetworkBuilder::ApplyConfigToTrainer()

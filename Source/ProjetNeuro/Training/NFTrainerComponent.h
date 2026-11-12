@@ -33,8 +33,13 @@ struct PROJETNEURO_API FNFTrainingProgress
 	UPROPERTY(BlueprintReadOnly, Category = "Neuron Forge")
 	float Loss = 0.f;
 
+	/** Précision sur le jeu d'entraînement (les exemples que le modèle voit). */
 	UPROPERTY(BlueprintReadOnly, Category = "Neuron Forge")
 	float Accuracy = 0.f;
+
+	/** Précision sur le jeu de validation (des exemples que le modèle n'a jamais vus), -1 sans validation. */
+	UPROPERTY(BlueprintReadOnly, Category = "Neuron Forge")
+	float ValidationAccuracy = -1.f;
 };
 
 /** Problème à résoudre dans le labo. */
@@ -56,6 +61,14 @@ struct FNFTrainingProfile
 	float EpochsPerSecond = 120.f;
 	/** Cran du levier au départ (0,01 / 0,05 / 0,1 / 0,3 / 0,5 / 1 / 2). */
 	int32 DefaultLearningRateIndex = 4;
+	/**
+	 * Si > 0, le rythme et la durée maximale sont fixés en exemples plutôt qu'en epochs :
+	 * un petit jeu d'entraînement fait alors plus d'epochs dans le même temps de jeu.
+	 */
+	float SamplesPerSecond = 0.f;
+	int32 MaxTrainingSamples = 0;
+	/** Avec un jeu de validation : précision de validation à atteindre. */
+	float TargetValidationAccuracy = 0.9f;
 };
 
 /**
@@ -74,6 +87,11 @@ struct FNFGreenhouseProfile : public FNFTrainingProfile
 		MaxEpochs = 40;
 		EpochsPerSecond = 1.2f;
 		DefaultLearningRateIndex = 2;
+		// 100 exemples par seconde, 3200 exemples au plus (32 s) : un bon modèle réussit en 10 à 30 s
+		SamplesPerSecond = 100.f;
+		MaxTrainingSamples = 3200;
+		// La validation ne compte qu'une cinquantaine d'expériences : sa note varie de quelques points
+		TargetValidationAccuracy = 0.88f;
 	}
 };
 
@@ -100,11 +118,23 @@ public:
 	/** Reconstruit le réseau avec cette architecture ; interrompt un entraînement en cours et repasse en Idle. */
 	void Configure(const TArray<FNFLayerConfig>& HiddenLayers, float InLearningRate);
 
-	/** Remplace le dataset (XOR par défaut) et reconstruit le réseau. */
+	/** Remplace le dataset (XOR par défaut) et reconstruit le réseau. Retire le jeu de validation. */
 	void SetDataset(const FNFDataset& InDataset);
 
-	/** Applique la précision, la perte, le nombre d'epochs et la vitesse d'un profil. */
+	/**
+	 * Jeu d'entraînement + jeu de validation : le modèle n'apprend que sur Train ; Validation sert
+	 * à vérifier qu'il sait répondre sur des exemples qu'il n'a jamais vus (la réussite se juge dessus).
+	 */
+	void SetDatasets(const FNFDataset& InTrain, const FNFDataset& InValidation);
+
+	bool HasValidation() const { return Validation.Num() > 0; }
+	const FNFDataset& GetValidationDataset() const { return Validation; }
+
+	/** Applique la précision, la perte, le nombre d'epochs et la vitesse d'un profil (adaptés à la taille du jeu). */
 	void ApplyProfile(const FNFTrainingProfile& Profile);
+
+	/** Précision de validation moyennée sur les dernières epochs (celle qui décide de la réussite). */
+	float GetSmoothedValidationAccuracy() const;
 
 	/** Sortie du réseau (premier neurone) pour des entrées déjà normalisées. Ne modifie pas les poids. */
 	float Predict(float InputA, float InputB);
@@ -141,8 +171,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Neuron Forge|Training")
 	float GetLearningRate() const { return LearningRate; }
 
-	/** Perte à chaque epoch du dernier entraînement (pour une future courbe). */
+	/** Perte à chaque epoch du dernier entraînement. */
 	const TArray<float>& GetLossHistory() const { return LossHistory; }
+
+	/** Précision d'entraînement et de validation à chaque epoch (courbes d'apprentissage). */
+	const TArray<float>& GetAccuracyHistory() const { return AccuracyHistory; }
+	const TArray<float>& GetValidationHistory() const { return ValidationHistory; }
 
 	const FNFNeuralNetwork& GetNetwork() const { return Network; }
 	FNFNeuralNetwork& GetMutableNetwork() { return Network; }
@@ -155,6 +189,14 @@ public:
 	/** Au-delà, l'entraînement échoue. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Training", meta = (ClampMin = "1"))
 	int32 MaxEpochs = 2000;
+
+	/** Avec un jeu de validation : précision de validation à atteindre (moyenne des dernières epochs). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Training", meta = (ClampMin = "0", ClampMax = "1"))
+	float TargetValidationAccuracy = 0.9f;
+
+	/** Nombre d'epochs sur lesquelles la précision de validation est moyennée. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Training", meta = (ClampMin = "1"))
+	int32 ValidationSmoothing = 3;
 
 	/** Précision à atteindre, entre 0 et 1. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Training", meta = (ClampMin = "0", ClampMax = "1"))
@@ -177,6 +219,7 @@ public:
 private:
 	void RebuildNetwork();
 	void SetState(ENFTrainingState NewState);
+	void ApplyRate();
 
 	/** Entraîne sur l'exemple suivant de l'epoch ; termine l'epoch quand elle est complète. */
 	void TrainNextSample();
@@ -184,8 +227,13 @@ private:
 
 	FNFNeuralNetwork Network;
 	FNFDataset Dataset;
+	FNFDataset Validation;
 	TArray<FNFLayerConfig> HiddenConfig;
 	TArray<float> LossHistory;
+	TArray<float> AccuracyHistory;
+	TArray<float> ValidationHistory;
+	float SamplesPerSecond = 0.f;
+	int32 MaxTrainingSamples = 0;
 	FRandomStream ShuffleRng;
 	TArray<int32> ShuffleOrder;
 	int32 SampleCursor = 0;

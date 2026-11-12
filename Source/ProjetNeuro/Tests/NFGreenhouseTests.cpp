@@ -204,10 +204,13 @@ bool FNFGreenhouseLabTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Démarrage de l'entraînement"), Builder->StartTraining());
 	TestWorld.StepUntil([Trainer]() { return !Trainer->IsTraining(); }, 300);
 	TestEqual(TEXT("5 ReLU réussit la serre"), Builder->GetTrainingState(), ENFTrainingState::Succeeded);
-	AddInfo(FString::Printf(TEXT("Serre réussie en %d epochs (%.1f %%), soit %.0f s de jeu"),
-		Trainer->GetProgress().Epoch, Trainer->GetProgress().Accuracy * 100.f, Trainer->GetProgress().Epoch / FNFGreenhouseProfile().EpochsPerSecond));
-	TestTrue(TEXT("Un bon modèle réussit en 10 à 30 secondes de jeu"),
-		Trainer->GetProgress().Epoch / FNFGreenhouseProfile().EpochsPerSecond <= 30.f);
+	// Durée de jeu : le rythme du profil est fixé en exemples par seconde
+	const float GameSeconds = Trainer->GetProgress().Epoch * Trainer->GetDataset().Num() / FNFGreenhouseProfile().SamplesPerSecond;
+	AddInfo(FString::Printf(TEXT("Serre réussie en %d epochs (entraînement %.1f %%, validation %.1f %%), soit %.0f s de jeu"),
+		Trainer->GetProgress().Epoch, Trainer->GetProgress().Accuracy * 100.f, Trainer->GetProgress().ValidationAccuracy * 100.f, GameSeconds));
+	TestTrue(TEXT("La réussite se juge sur la validation"), Trainer->HasValidation()
+		&& Trainer->GetSmoothedValidationAccuracy() >= FNFGreenhouseProfile().TargetValidationAccuracy);
+	TestTrue(TEXT("Un bon modèle réussit en 10 à 30 secondes de jeu"), GameSeconds <= 30.f);
 	TestTrue(TEXT("La porte s'ouvre"), TestWorld.StepUntil([Door]() { return Door->IsOpen(); }, 300));
 
 	// Prédiction ponctuelle (phase de test du pot) : centre de la zone et sécheresse
