@@ -152,6 +152,9 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible 
 | Labo | `ANFExitTrigger` | Zone de fin de niveau (Box Collision) derrière la porte. |
 | Serre | `ANFLabNotebook` | Carnet du labo : graphique eau / lumière des expériences et frontière de décision en direct, dessinés dans une texture dynamique. |
 | Serre | `ANFPlantPot`, `ANFPlantControl` | Phase de test : pot de plante dont l'aspect suit la prédiction du modèle, commandes Arrosage et Lampe, comparaison avec la vraie serre. |
+| Serre | `ANFGreenhouse` | La serre derrière la porte : à l'entrée (Box Collision), le modèle validé prédit le sort de chaque plante de la grille, l'animation part en vague depuis l'entrée et un panneau affiche le bilan « Ton modèle a fait pousser X plantes sur Y, il s'est trompé sur Z ». Lance l'ambiance sonore de la serre. |
+| Serre | `ANFGreenhousePlant` | Plante en formes de base (pot, tige, feuilles, fleur) : jeune pousse en attente, puis pousse et fleurit en direct (survie prédite) ou fane, brunit et se courbe (mort prédite). |
+| Serre | `ANFSprinklerRow`, `ANFFireflies` | Rampe d'arrosage dont les gouttes sont d'autant plus nombreuses que la rangée est arrosée ; lucioles qui volettent et scintillent. |
 | Ambiance | `ANFLabAmbience` | Ambiance réactive : couleur et intensité envoyées à la Material Parameter Collection `MPC_NF_Lab` et aux lumières taguées `NFMood` (cyan au repos, orange pulsé pendant l'entraînement, flash vert à la réussite, alerte rouge à l'échec). |
 | Ambiance | `ANFAnimatedProp` | Décor animé : rotation, flottement, couronne d'objets en orbite, accélère pendant l'entraînement (hologrammes, cubes de données). |
 
@@ -280,6 +283,7 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `Greenhouse.LinearModelFails` | Sans couche cachée : échec sous 80 % et conseil « ligne droite ». |
 | `Greenhouse.Notebook` | Carnet du labo : fond neutre avant l'entraînement, zone verte au centre et rouge dans les coins après la réussite, erreurs entourées = expériences mal prédites. |
 | `Greenhouse.PlantPot` | Pot de plante : verrouillé avant la validation, commande d'arrosage (cran par cran, de 10 à 0), prédictions cohérentes avec la vraie serre sur au moins 90 % des 121 réglages (117 mesurés). |
+| `Greenhouse.GreenhouseRoom` | Serre 6 × 6 : refusée tant que le modèle n'est pas validé ; après l'entraînement, chaque plante reçoit son verdict, le bilan (plantes poussées, erreurs, survies réelles) correspond aux prédictions, au plus 4 erreurs sur 36, toutes les animations se terminent. |
 | `Greenhouse.Calibration` | Mesures ci-dessous ; vérifie que le linéaire plafonne sous 80 % et que 4 à 6 neurones Tanh ou ReLU (taux 0,1) atteignent 95 % en moins de 40 epochs. |
 | `Smoke.ResearcherHands` | En jeu : les deux mains sont devant la caméra et dans le champ, au repos et pièce en main ; elles encadrent la pièce tenue. |
 | `Interaction.Interactor` | Dans un monde de test : rayon, distance maximale, focus et surbrillance, interaction, objet désactivé, source de visée de type contrôleur VR, interaction directe sans rayon. |

@@ -8,6 +8,8 @@
 #include "Lab/NFLabDoor.h"
 #include "Lab/NFLabNotebook.h"
 #include "Lab/NFPlantPot.h"
+#include "Lab/NFGreenhouse.h"
+#include "Lab/NFGreenhousePlant.h"
 #include "Interaction/NFInteractable.h"
 #include "Lab/NFNetworkBuilder.h"
 #include "Tests/NFTestWorld.h"
@@ -323,7 +325,80 @@ bool FNFGreenhousePlantPotTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFGreenhouseRoomTest, "NeuronForge.Greenhouse.GreenhouseRoom", NFTestUtils::Flags)
+
+bool FNFGreenhouseRoomTest::RunTest(const FString& Parameters)
+{
+	NFTestUtils::FScopedTestWorld TestWorld(TEXT("NFGreenhouseRoomWorld"));
+	ANFNetworkBuilder* Builder = NFGreenhouseTests::SpawnGreenhouseBuilder(TestWorld.World, { { 5, ENFActivation::ReLU } });
+
+	// Grille 6 x 6 comme dans le niveau : eau sur X, lumière sur Y
+	TArray<TObjectPtr<ANFGreenhousePlant>> Plants;
+	const float Values[] = { 0.f, 2.f, 4.f, 6.f, 8.f, 10.f };
+	for (int32 i = 0; i < 6; ++i)
+	{
+		for (int32 j = 0; j < 6; ++j)
+		{
+			const FTransform Transform(FVector(3000.f + i * 180.f, -450.f + j * 180.f, 0.f));
+			ANFGreenhousePlant* Plant = TestWorld.World->SpawnActorDeferred<ANFGreenhousePlant>(ANFGreenhousePlant::StaticClass(), Transform);
+			Plant->Water = Values[i];
+			Plant->Light = Values[j];
+			Plant->FinishSpawning(Transform);
+			Plants.Add(Plant);
+		}
+	}
+
+	const FTransform GreenhouseTransform(FVector(2800.f, 0.f, 0.f));
+	ANFGreenhouse* Greenhouse = TestWorld.World->SpawnActorDeferred<ANFGreenhouse>(ANFGreenhouse::StaticClass(), GreenhouseTransform);
+	Greenhouse->Builder = Builder;
+	Greenhouse->Plants = Plants;
+	Greenhouse->FinishSpawning(GreenhouseTransform);
+
+	TestFalse(TEXT("Sans modèle validé, la serre ne démarre pas"), Greenhouse->Activate());
+	TestFalse(TEXT("Serre en attente"), Greenhouse->IsActivated());
+
+	Builder->StartTraining();
+	TestWorld.StepUntil([Builder]() { return !Builder->GetTrainer()->IsTraining(); }, 300);
+	TestEqual(TEXT("Modèle validé"), Builder->GetTrainingState(), ENFTrainingState::Succeeded);
+	TestTrue(TEXT("Avec le modèle validé, la serre démarre"), Greenhouse->Activate());
+
+	// Le bilan correspond aux prédictions et à la vraie règle de la serre
+	int32 Grown = 0, Mistakes = 0, Alive = 0;
+	for (const ANFGreenhousePlant* Plant : Plants)
+	{
+		Grown += Plant->IsPredictedAlive() ? 1 : 0;
+		Alive += Plant->ReallySurvives() ? 1 : 0;
+		Mistakes += Plant->IsPredictedAlive() != Plant->ReallySurvives() ? 1 : 0;
+		TestTrue(TEXT("Chaque plante a reçu son verdict"), Plant->IsRevealed());
+	}
+	TestEqual(TEXT("36 plantes"), Greenhouse->GetPlantCount(), 36);
+	TestEqual(TEXT("Plantes poussées = survies prédites"), Greenhouse->GetGrownCount(), Grown);
+	TestEqual(TEXT("Erreurs = prédictions contraires à la vraie serre"), Greenhouse->GetMistakeCount(), Mistakes);
+	TestEqual(TEXT("Survies réelles"), Greenhouse->GetReallyAliveCount(), Alive);
+	TestTrue(TEXT("Le modèle validé fait pousser des plantes"), Grown > 0 && Grown < 36);
+	TestTrue(TEXT("Peu d'erreurs (au plus 4 sur 36)"), Mistakes <= 4);
+	TestTrue(TEXT("Le bilan cite le nombre de plantes poussées"),
+		Greenhouse->GetSummaryText().Contains(FString::Printf(TEXT("pousser %d plantes sur 36"), Grown)));
+	AddInfo(Greenhouse->GetSummaryText().Replace(TEXT("\n"), TEXT(" ")));
+
+	// L'animation se propage puis se termine pour toutes les plantes
+	const bool bAllDone = TestWorld.StepUntil([&Plants]()
+	{
+		for (const ANFGreenhousePlant* Plant : Plants)
+		{
+			if (Plant->GetAnimationProgress() < 1.f)
+			{
+				return false;
+			}
+		}
+		return true;
+	}, 900);
+	TestTrue(TEXT("Toutes les plantes ont fini de pousser ou de faner"), bAllDone);
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS
+
 
 
 

@@ -44,6 +44,7 @@ private:
 class ANFNetworkBuilder;
 class ANFExitTrigger;
 class ANFPlantPot;
+class ANFGreenhouse;
 
 /**
  * Panneau d'objectifs en haut à gauche pendant la partie :
@@ -56,12 +57,13 @@ public:
 		SLATE_ARGUMENT(TWeakObjectPtr<ANFNetworkBuilder>, Builder)
 		SLATE_ARGUMENT(TWeakObjectPtr<ANFExitTrigger>, Exit)
 		SLATE_ARGUMENT(TWeakObjectPtr<ANFPlantPot>, Pot)
+		SLATE_ARGUMENT(TWeakObjectPtr<ANFGreenhouse>, Greenhouse)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
 
 private:
-	enum class EObjective : uint8 { Design, Train, Validate, TestPlant, Exit };
+	enum class EObjective : uint8 { Design, Train, Validate, TestPlant, Greenhouse, Exit };
 
 	bool IsDone(EObjective Objective) const;
 	bool IsCurrent(EObjective Objective) const;
@@ -70,4 +72,5 @@ private:
 	TWeakObjectPtr<ANFNetworkBuilder> Builder;
 	TWeakObjectPtr<ANFExitTrigger> Exit;
 	TWeakObjectPtr<ANFPlantPot> Pot;
+	TWeakObjectPtr<ANFGreenhouse> Greenhouse;
 };

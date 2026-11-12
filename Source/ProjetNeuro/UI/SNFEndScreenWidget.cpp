@@ -4,6 +4,7 @@
 #include "Lab/NFExitTrigger.h"
 #include "Lab/NFNetworkBuilder.h"
 #include "Lab/NFPlantPot.h"
+#include "Lab/NFGreenhouse.h"
 #include "UI/NFUIStyle.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBackgroundBlur.h"
@@ -207,6 +208,7 @@ void SNFObjectivesWidget::Construct(const FArguments& InArgs)
 	Builder = InArgs._Builder;
 	Exit = InArgs._Exit;
 	Pot = InArgs._Pot;
+	Greenhouse = InArgs._Greenhouse;
 
 	ChildSlot
 	.HAlign(HAlign_Left)
@@ -252,7 +254,8 @@ void SNFObjectivesWidget::Construct(const FArguments& InArgs)
 					return FText::Format(LOCTEXT("ObjValidate", "Atteindre {0} % de réussite"), FText::AsNumber(FMath::RoundToInt32(Target * 100.f)));
 				}))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::TestPlant, LOCTEXT("ObjTest", "Tester le modèle sur une plante"))]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Exit, LOCTEXT("ObjExit", "Quitter le laboratoire"))]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Greenhouse, LOCTEXT("ObjGreenhouse", "Voir le modèle à l'œuvre dans la serre"))]
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f, 0.f, 0.f)[MakeObjectiveRow(EObjective::Exit, LOCTEXT("ObjExit", "Rejoindre le fond de la serre"))]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f, 0.f, 0.f)
 				[
 					SNew(STextBlock).Text(LOCTEXT("ObjHelp", "H : revoir le briefing")).Font(NFUI::Font(11)).ColorAndOpacity(NFUI::Muted)
@@ -271,6 +274,7 @@ bool SNFObjectivesWidget::IsDone(EObjective Objective) const
 	case EObjective::Train:		return B && B->GetTrainingAttempts() > 0;
 	case EObjective::Validate:	return B && B->HasSucceeded();
 	case EObjective::TestPlant:	return Pot.IsValid() ? Pot->HasBeenTested() : true;
+	case EObjective::Greenhouse:	return Greenhouse.IsValid() ? Greenhouse->IsActivated() : true;
 	case EObjective::Exit:		return Exit.IsValid() && Exit->IsCompleted();
 	default:					return false;
 	}
@@ -279,7 +283,7 @@ bool SNFObjectivesWidget::IsDone(EObjective Objective) const
 bool SNFObjectivesWidget::IsCurrent(EObjective Objective) const
 {
 	// L'objectif courant est le premier qui n'est pas atteint
-	for (EObjective Candidate : { EObjective::Design, EObjective::Train, EObjective::Validate, EObjective::TestPlant, EObjective::Exit })
+	for (EObjective Candidate : { EObjective::Design, EObjective::Train, EObjective::Validate, EObjective::TestPlant, EObjective::Greenhouse, EObjective::Exit })
 	{
 		if (!IsDone(Candidate))
 		{

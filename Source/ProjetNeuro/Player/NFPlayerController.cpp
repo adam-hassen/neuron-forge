@@ -9,6 +9,7 @@
 #include "Lab/NFExitTrigger.h"
 #include "Lab/NFNetworkBuilder.h"
 #include "Lab/NFPlantPot.h"
+#include "Lab/NFGreenhouse.h"
 #include "Misc/CommandLine.h"
 #include "Player/NFHUD.h"
 #include "Player/NFPlayerCameraManager.h"
@@ -55,7 +56,8 @@ void ANFPlayerController::BeginPlay()
 	ObjectivesWidget = SNew(SNFObjectivesWidget)
 		.Builder(FindFirstActor<ANFNetworkBuilder>(GetWorld()))
 		.Exit(FindFirstActor<ANFExitTrigger>(GetWorld()))
-		.Pot(FindFirstActor<ANFPlantPot>(GetWorld()));
+		.Pot(FindFirstActor<ANFPlantPot>(GetWorld()))
+		.Greenhouse(FindFirstActor<ANFGreenhouse>(GetWorld()));
 	AddOverlay(ObjectivesWidget.ToSharedRef(), ObjectivesZOrder);
 
 	MissionStartTime = GetWorld()->GetTimeSeconds();
