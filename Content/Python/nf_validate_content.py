@@ -67,6 +67,18 @@ for bp_name, props in expected_sounds.items():
             actual = asset_name(cdo.get_editor_property(prop))
             check("{}.{} -> {}".format(bp_name, prop, expected), actual == expected, actual)
 
+character = cdo_of("BP_NF_Character")
+if character:
+    arms = character.get_editor_property("researcher_arms")
+    names = [arms.get_material(i).get_name() if arms.get_material(i) else None for i in range(2)]
+    check("Bras du personnage : mains de chercheur sur les 2 slots", names == ["MI_NF_ResearcherArms"] * 2, names)
+    gloves = unreal.MaterialEditingLibrary.get_material_instance_scalar_parameter_value(
+        eal.load_asset("/Game/NeuronForge/Materials/MI_NF_ResearcherArms"), "GloveAmount")
+    check("Gants désactivés par défaut", gloves == 0.0, gloves)
+    template = eal.load_asset("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple")
+    check("Material d'origine du template intact",
+          template.get_editor_property("materials")[0].get_editor_property("material_interface").get_name() == "MI_Manny_01_New")
+
 gm = cdo_of("BP_NF_GameMode")
 if gm:
     pawn = gm.get_editor_property("default_pawn_class")

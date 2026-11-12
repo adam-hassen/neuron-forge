@@ -52,11 +52,11 @@ public:
 
 	/** Distance de la pièce tenue devant la caméra, en cm. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Grab")
-	float HoldDistance = 110.f;
+	float HoldDistance = 90.f;
 
 	/** Décalage vertical de la pièce tenue (négatif = plus bas que le regard). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neuron Forge|Grab")
-	float HoldHeightOffset = -18.f;
+	float HoldHeightOffset = -22.f;
 
 protected:
 	bool GetHoldTransform(FVector& OutLocation, FRotator& OutRotation) const;

@@ -442,6 +442,101 @@ def create_lab_materials(materials):
                              scalars={"Metallic": 0.9, "Roughness": 0.22, "EmissiveStrength": 0.05})
     return materials
 
+
+# --- Mains de chercheur --------------------------------------------------------
+
+# Poignet et coude gauches du mannequin en pose de référence (mesurés avec nf_inspect_arms.py)
+WRIST = (47.8, 15.7, 104.5)
+ELBOW = (35.0, -1.9, 120.9)
+
+
+def create_researcher_arms_material():
+    """M_NF_ResearcherArms : peau couleur chair au-delà du poignet, manche de blouse blanche avant.
+
+    Le mesh des bras n'a que deux slots (M_HeadLegs, M_Torso) : la séparation se fait dans le material,
+    à partir de la position du point dans la pose de référence (Pre-Skinned Local Position), qui ne bouge
+    pas avec l'animation. Les deux bras sont symétriques (|x|). Gants : paramètre GloveAmount (0 par défaut).
+    """
+    import math
+    material, _ = _load_or_create("M_NF_ResearcherArms", MATERIALS, unreal.Material, unreal.MaterialFactoryNew())
+    _reset_material(material)
+    material.set_editor_property("used_with_skeletal_mesh", True)
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_MASKED)
+
+    # Position avant skinning, transmise du vertex shader au pixel shader
+    pre = _expr(material, unreal.MaterialExpressionPreSkinnedPosition, -2200, 0)
+    interp = mel.create_material_expression(material, unreal.MaterialExpressionVertexInterpolator, -2000, 0)
+    mel.connect_material_expressions(pre, "", interp, "")
+
+    # Symétrie gauche / droite : P' = (|x|, y, z)
+    px = _mask(material, interp, -1800, -100, r=True)
+    abs_x = _op(material, unreal.MaterialExpressionAbs, px, -1650, -100)
+    yz = _mask(material, interp, -1800, 50, g=True, b=True)
+    mirrored = _binary(material, unreal.MaterialExpressionAppendVector, abs_x, yz, -1500, 0)
+
+    # Distance signée au plan du poignet, le long de l'avant-bras (cm) : positive = main
+    direction = [WRIST[i] - ELBOW[i] for i in range(3)]
+    length = math.sqrt(sum(c * c for c in direction))
+    normal = [c / length for c in direction]
+    wrist = _expr(material, unreal.MaterialExpressionConstant3Vector, -1500, 150, constant=unreal.LinearColor(*WRIST, 1))
+    axis = _expr(material, unreal.MaterialExpressionConstant3Vector, -1500, 250, constant=unreal.LinearColor(*normal, 1))
+    relative = _binary(material, unreal.MaterialExpressionSubtract, mirrored, wrist, -1300, 100)
+    along = _binary(material, unreal.MaterialExpressionDotProduct, relative, axis, -1150, 150)
+
+    # Main : au-delà de WristOffset (la manche s'arrête un peu avant le poignet)
+    offset = _scalar_param(material, "WristOffset", -2.5, -1150, 300)
+    beyond = _binary(material, unreal.MaterialExpressionSubtract, along, offset, -950, 200)
+    beyond_sharp = _op(material, unreal.MaterialExpressionMultiply, beyond, -800, 200, const_b=3.0)
+    hand_raw = _op(material, unreal.MaterialExpressionSaturate, beyond_sharp, -650, 200)
+    # Uniquement sur les bras (loin du torse), pas sur les jambes ni la tête
+    arm_zone = _op(material, unreal.MaterialExpressionSubtract, abs_x, -1150, -250, const_b=28.0)
+    arm_sharp = _op(material, unreal.MaterialExpressionSaturate, arm_zone, -950, -250)
+    hand = _binary(material, unreal.MaterialExpressionMultiply, hand_raw, arm_sharp, -500, 100)
+
+    # Poignet de manche : bande de 6 cm juste avant la peau
+    cuff_start = _op(material, unreal.MaterialExpressionAdd, beyond, -800, 400, const_b=6.0)
+    cuff_sharp = _op(material, unreal.MaterialExpressionMultiply, cuff_start, -650, 400, const_b=2.0)
+    cuff_raw = _op(material, unreal.MaterialExpressionSaturate, cuff_sharp, -500, 400)
+    not_hand = _op(material, unreal.MaterialExpressionOneMinus, hand, -500, 300)
+    cuff = _binary(material, unreal.MaterialExpressionMultiply, cuff_raw, not_hand, -350, 350)
+
+    skin = _vector_param(material, "SkinColor", (0.50, 0.27, 0.17, 1), -500, -400)
+    glove = _vector_param(material, "GloveColor", (0.10, 0.30, 0.85, 1), -500, -250)
+    glove_amount = _scalar_param(material, "GloveAmount", 0.0, -500, -100)
+    coat = _vector_param(material, "CoatColor", (0.86, 0.87, 0.89, 1), -500, 550)
+    cuff_color = _vector_param(material, "CuffColor", (0.62, 0.68, 0.76, 1), -500, 700)
+
+    def lerp(a, b, alpha, x, y):
+        node = mel.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate, x, y)
+        mel.connect_material_expressions(a, "", node, "A")
+        mel.connect_material_expressions(b, "", node, "B")
+        mel.connect_material_expressions(alpha, "", node, "Alpha")
+        return node
+
+    hand_color = lerp(skin, glove, glove_amount, -250, -300)
+    sleeve_color = lerp(coat, cuff_color, cuff, -250, 550)
+    base = lerp(sleeve_color, hand_color, hand, 0, 100)
+    mel.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
+
+    rough_hand = _expr(material, unreal.MaterialExpressionConstant, -250, -150, r=0.45)
+    rough_coat = _expr(material, unreal.MaterialExpressionConstant, -250, 700, r=0.85)
+    roughness = lerp(rough_coat, rough_hand, hand, 0, 300)
+    mel.connect_material_property(roughness, "", unreal.MaterialProperty.MP_ROUGHNESS)
+
+    # Seuls les bras sont visibles (|x| > 15 cm dans la pose de référence) : torse, tête et jambes masqués
+    visible_zone = _op(material, unreal.MaterialExpressionSubtract, abs_x, -950, -400, const_b=15.0)
+    visible = _op(material, unreal.MaterialExpressionSaturate, visible_zone, -800, -400)
+    mel.connect_material_property(visible, "", unreal.MaterialProperty.MP_OPACITY_MASK)
+
+    mel.recompile_material(material)
+    return material
+
+
+def create_arm_materials(materials):
+    arms = create_researcher_arms_material()
+    materials["ResearcherArms"] = create_material_instance("MI_NF_ResearcherArms", arms, scalars={"GloveAmount": 0.0})
+    return materials
+
 # --- Sons ------------------------------------------------------------------
 
 def import_sounds():
@@ -495,6 +590,11 @@ def create_blueprints(materials, sounds):
     blueprints = {}
 
     bp = _blueprint("BP_NF_Character", unreal.NFCharacter)
+    if "ResearcherArms" in materials:
+        # Bras vus à la première personne : mains de chercheur (le corps qui projette l'ombre garde le template)
+        arms = _cdo(bp).get_editor_property("researcher_arms")
+        for slot in range(2):
+            arms.set_material(slot, materials["ResearcherArms"])
     blueprints["Character"] = bp
 
     bp = _blueprint("BP_NF_GameMode", unreal.NFGameMode)

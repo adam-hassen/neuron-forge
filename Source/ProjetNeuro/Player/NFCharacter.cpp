@@ -15,6 +15,8 @@
 #include "InputMappingContext.h"
 #include "Interaction/NFGrabberComponent.h"
 #include "Interaction/NFInteractorComponent.h"
+#include "Lab/NFPiece.h"
+#include "Player/NFResearcherArmsComponent.h"
 #include "ProjetNeuro.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -34,7 +36,8 @@ namespace NFCharacterAssets
 
 ANFCharacter::ANFCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.TickGroup = TG_PostPhysics;
 
 	// --- Capsule et mouvement (valeurs du template) ---
 	GetCapsuleComponent()->InitCapsuleSize(34.f, 96.f);
@@ -59,6 +62,15 @@ ANFCharacter::ANFCharacter()
 	FirstPersonMesh->SetOnlyOwnerSee(true);
 	FirstPersonMesh->SetCastShadow(false);
 	FirstPersonMesh->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+	// Les bras animés du template pendent hors du champ : ils restent là pour porter la caméra (os « head »),
+	// cachés mais toujours animés ; les bras visibles sont ceux du chercheur, juste en dessous.
+	FirstPersonMesh->SetHiddenInGame(true);
+	FirstPersonMesh->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+
+	ResearcherArms = CreateDefaultSubobject<UNFResearcherArmsComponent>(TEXT("ResearcherArms"));
+	ResearcherArms->SetupAttachment(FirstPersonMesh);
+	ResearcherArms->FirstPersonPrimitiveType = EFirstPersonPrimitiveType::FirstPerson;
+	ResearcherArms->SetOnlyOwnerSee(true);
 
 	// --- Caméra fixée sur l'os "head" ---
 	FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
@@ -90,6 +102,7 @@ ANFCharacter::ANFCharacter()
 	{
 		BodyMesh->SetSkeletalMeshAsset(MeshAsset.Object);
 		FirstPersonMesh->SetSkeletalMeshAsset(MeshAsset.Object);
+		ResearcherArms->SetSkinnedAssetAndUpdate(MeshAsset.Object);
 	}
 	if (BodyAnimClass.Succeeded())
 	{
@@ -197,6 +210,19 @@ void ANFCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 	// Le contexte d'interaction est créé ici si le contrôleur était déjà assigné
 	AddMappingContexts();
+}
+
+void ANFCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (ResearcherArms && FirstPersonCamera)
+	{
+		const FRotator View = Controller ? Controller->GetControlRotation() : FirstPersonCamera->GetComponentRotation();
+		const FTransform Camera(View, FirstPersonCamera->GetComponentLocation());
+		const AActor* Held = Grabber ? Grabber->GetHeldPiece() : nullptr;
+		ResearcherArms->UpdateArms(Camera, Held, GetVelocity().Size2D(), DeltaSeconds);
+	}
 }
 
 void ANFCharacter::Move(const FInputActionValue& Value)

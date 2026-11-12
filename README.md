@@ -86,6 +86,10 @@ Le dataset **XOR** (4 exemples) reste dans le code : il sert aux tests automatis
 |:---:|:---:|:---:|
 | ![Hall](Docs/Images/NF_Entree.png) | ![Forge](Docs/Images/NF_Forge.png) | ![Atelier](Docs/Images/NF_Atelier.png) |
 
+**Mains du chercheur** : peau couleur chair et manches de blouse blanche, sans aucun asset téléchargé. Le mesh du mannequin n'a que deux slots de material (`M_HeadLegs`, `M_Torso`), qui ne séparent pas mains et bras : le material `M_NF_ResearcherArms` découpe donc la peau et la manche à partir de la position de chaque point dans la pose de référence (nœud *Pre-Skinned Position*, insensible à l'animation), au niveau du plan du poignet, et masque tout ce qui n'est pas un bras. L'instance `MI_NF_ResearcherArms` règle les couleurs et les gants (`GloveAmount`, désactivés par défaut). Les assets du template ne sont pas modifiés.
+
+![Mains du chercheur](Docs/Images/NF_Mains.png)
+
 **Contrôles (PC)** : `ZQSD`/`WASD` pour se déplacer, la souris pour regarder, `Espace` pour sauter, `E` ou clic gauche pour interagir avec l'objet visé. `H` ou `F1` pour revoir le briefing. À la manette : stick gauche/droit, `A` pour sauter, `X` pour interagir.
 
 L'objet visé est mis en surbrillance et le réticule affiche l'action possible : « [E] Prendre : orbe-neurone », puis, la pièce en main, « [E] Insérer orbe-neurone dans le module » quand un emplacement compatible est à portée (réticule vert).
@@ -133,6 +137,7 @@ L'objet visé est mis en surbrillance et le réticule affiche l'action possible 
 | Forge | `ANFLever` | Levier du taux d'apprentissage : chaque traction passe au cran suivant, cadran lumineux. |
 | Interaction | `ANFInteractableActor` | Acteur interactif de base : mesh, texte d'aide, surbrillance (paramètre de material `Highlight` + Custom Depth), événement `OnInteracted`. |
 | Joueur | `ANFCharacter` | Personnage FPS en C++ reprenant la configuration du template (bras FP, corps en ombre, caméra sur la tête, FOV first person) et ses assets ; ajoute l'action « Interagir ». |
+| Joueur | `UNFResearcherArmsComponent` | Bras de chercheur à la première personne : mesh posable placé par cinématique inverse à deux os (épaule, coude, poignet), mains devant la caméra au repos (balancement de marche) et de part et d'autre de la pièce tenue. Les bras du template, qui pendent hors du champ, restent cachés pour porter la caméra. |
 | Joueur | `ANFPlayerController`, `ANFPlayerCameraManager`, `ANFHUD` | Contrôleur, limites de caméra du template, réticule, texte d'aide et messages temporaires dessinés au Canvas. |
 | Règles | `ANFGameMode` | Associe le personnage, le contrôleur et le HUD du jeu. |
 | Interface | `SNFIntroWidget` | Briefing de mission animé en 4 pages (Slate) : flou d'arrière-plan, fondus, navigation clavier / souris / manette. |
@@ -276,6 +281,7 @@ Le réseau de neurones est couvert par des tests d'automatisation Unreal (`Sourc
 | `Greenhouse.Notebook` | Carnet du labo : fond neutre avant l'entraînement, zone verte au centre et rouge dans les coins après la réussite, erreurs entourées = expériences mal prédites. |
 | `Greenhouse.PlantPot` | Pot de plante : verrouillé avant la validation, commande d'arrosage (cran par cran, de 10 à 0), prédictions cohérentes avec la vraie serre sur au moins 90 % des 121 réglages (117 mesurés). |
 | `Greenhouse.Calibration` | Mesures ci-dessous ; vérifie que le linéaire plafonne sous 80 % et que 4 à 6 neurones Tanh ou ReLU (taux 0,1) atteignent 95 % en moins de 40 epochs. |
+| `Smoke.ResearcherHands` | En jeu : les deux mains sont devant la caméra et dans le champ, au repos et pièce en main ; elles encadrent la pièce tenue. |
 | `Interaction.Interactor` | Dans un monde de test : rayon, distance maximale, focus et surbrillance, interaction, objet désactivé, source de visée de type contrôleur VR, interaction directe sans rayon. |
 | `Lab.BuilderEditing` | Actions de configuration et leurs limites, verrouillage pendant l'entraînement, bouton lié à une couche absente puis présente. |
 | `Lab.FloorButtonStartsTraining` | Un pawn qui entre dans la Box Collision du bouton au sol lance l'entraînement ; le bouton se relâche quand il repart. |

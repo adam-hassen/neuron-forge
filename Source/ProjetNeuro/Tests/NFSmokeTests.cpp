@@ -25,9 +25,13 @@
 #include "Lab/NFPiece.h"
 #include "Lab/NFPlantPot.h"
 #include "Misc/Paths.h"
+#include "Animation/AnimInstance.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "GameFramework/Character.h"
 #include "Player/NFCharacter.h"
 #include "Player/NFHUD.h"
 #include "Player/NFPlayerController.h"
+#include "Player/NFResearcherArmsComponent.h"
 #include "Tests/AutomationCommon.h"
 #include "UnrealClient.h"
 
@@ -359,6 +363,8 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 	};
 	const TArray<FView> Views = {
 		{ TEXT("Entree"), FVector(-2000.f, 0.f, 100.f), FVector(900.f, 0.f, 350.f) },
+		{ TEXT("Mains"), FVector(-1550.f, -650.f, 100.f), FVector(-1250.f, -1050.f, 60.f) },
+		{ TEXT("MainsDevant"), FVector(-1550.f, -650.f, 100.f), FVector(-500.f, -650.f, 150.f) },
 		{ TEXT("Atelier"), FVector(-1550.f, -350.f, 100.f), FVector(-850.f, -1050.f, 90.f) },
 		{ TEXT("Forge"), FVector(-480.f, -250.f, 100.f), FVector(0.f, 0.f, 120.f) },
 		{ TEXT("Hologramme"), FVector(-250.f, 350.f, 100.f), FVector(950.f, 0.f, 420.f) },
@@ -444,4 +450,142 @@ bool FNFLabScreenshotsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+// ---------------------------------------------------------------------------
+// Capture brute de la vue du joueur, quel que soit le personnage (diagnostic) : Saved/Screenshots/NF_Vue*.png
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFViewCaptureTest, "NeuronForge.Diagnostic.ViewCapture",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
+
+bool FNFViewCaptureTest::RunTest(const FString& Parameters)
+{
+	UWorld* World = NFSmoke::FindGameWorld();
+	APlayerController* PC = World ? UGameplayStatics::GetPlayerController(World, 0) : nullptr;
+	if (!TestNotNull(TEXT("Contrôleur"), PC))
+	{
+		return false;
+	}
+	if (ANFPlayerController* NFPC = Cast<ANFPlayerController>(PC))
+	{
+		NFPC->CloseOverlays();
+	}
+	const float Pitches[] = { 0.f, -35.f };
+	for (int32 i = 0; i < 2; ++i)
+	{
+		const float Pitch = Pitches[i];
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([PC, Pitch]()
+		{
+			FRotator Rotation = PC->GetControlRotation();
+			Rotation.Pitch = Pitch;
+			PC->SetControlRotation(Rotation);
+			return true;
+		}));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([i]() { NFSmoke::Capture(FString::Printf(TEXT("Vue%d"), i)); return true; }));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+	}
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, PC]()
+	{
+		if (const ACharacter* Character = Cast<ACharacter>(PC->GetPawn()))
+		{
+			for (UActorComponent* Component : Character->GetComponents())
+			{
+				if (const USkeletalMeshComponent* Skel = Cast<USkeletalMeshComponent>(Component))
+				{
+					const FVector Hand = Skel->GetSocketLocation(TEXT("hand_r"));
+					const FVector Eye = PC->PlayerCameraManager ? PC->PlayerCameraManager->GetCameraLocation() : FVector::ZeroVector;
+					AddInfo(FString::Printf(TEXT("%s visible=%d ownerNoSee=%d onlyOwnerSee=%d anim=%s main droite relative à l'œil : %s"),
+						*Skel->GetName(), Skel->IsVisible(), Skel->bOwnerNoSee, Skel->bOnlyOwnerSee,
+						Skel->GetAnimInstance() ? *Skel->GetAnimInstance()->GetClass()->GetName() : TEXT("aucune"),
+						*Character->GetActorTransform().InverseTransformVector(Hand - Eye).ToString()));
+				}
+			}
+		}
+		return true;
+	}));
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// Mains du chercheur : visibles devant la caméra, et autour de la pièce tenue
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFResearcherHandsTest, "NeuronForge.Smoke.ResearcherHands",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
+
+bool FNFResearcherHandsTest::RunTest(const FString& Parameters)
+{
+	UWorld* World = NFSmoke::FindGameWorld();
+	ANFCharacter* Character = World ? Cast<ANFCharacter>(UGameplayStatics::GetPlayerPawn(World, 0)) : nullptr;
+	ANFPlayerController* PC = Character ? Cast<ANFPlayerController>(Character->GetController()) : nullptr;
+	if (!TestNotNull(TEXT("Joueur"), Character) || !TestNotNull(TEXT("Contrôleur"), PC) || !TestNotNull(TEXT("Bras du chercheur"), Character->GetResearcherArms()))
+	{
+		return false;
+	}
+	PC->CloseOverlays();
+
+	// Angle entre l'axe de la caméra et la direction de chaque main, et distance devant l'œil
+	auto CheckHands = [this, Character](const TCHAR* Context)
+	{
+		const FVector Eye = Character->GetFirstPersonCamera()->GetComponentLocation();
+		const FVector Forward = Character->GetController()->GetControlRotation().Vector();
+		for (bool bRight : { false, true })
+		{
+			const FVector ToHand = Character->GetResearcherArms()->GetHandLocation(bRight) - Eye;
+			const float Angle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(ToHand.GetSafeNormal(), Forward)));
+			AddInfo(FString::Printf(TEXT("%s, main %s : %.0f cm devant, %.0f° de l'axe de vue"), Context, bRight ? TEXT("droite") : TEXT("gauche"),
+				FVector::DotProduct(ToHand, Forward), Angle));
+			TestTrue(FString::Printf(TEXT("%s : main %s visible (devant, dans le champ)"), Context, bRight ? TEXT("droite") : TEXT("gauche")),
+				FVector::DotProduct(ToHand, Forward) > 15.f && Angle < 40.f);
+		}
+	};
+
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Character]()
+	{
+		NFSmoke::Teleport(Character, FVector(-1550.f, -650.f, 100.f));
+		NFSmoke::LookAt(Character, FVector(-500.f, -650.f, 150.f));
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([CheckHands]() { CheckHands(TEXT("Au repos")); NFSmoke::Capture(TEXT("MainsRepos")); return true; }));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+
+	// Prendre un module : les mains viennent l'encadrer
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, World, Character]()
+	{
+		ANFLayerModule* Module = nullptr;
+		for (TActorIterator<ANFLayerModule> It(World); It; ++It)
+		{
+			if (!It->IsDocked())
+			{
+				Module = *It;
+				break;
+			}
+		}
+		TestTrue(TEXT("Un module est pris en main"), Module && Character->GetGrabber()->TryGrab(Module));
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, Character, CheckHands]()
+	{
+		CheckHands(TEXT("Pièce en main"));
+		if (const AActor* Held = Character->GetGrabber()->GetHeldPiece())
+		{
+			for (bool bRight : { false, true })
+			{
+				// Les mains sont au contact de la pièce : à moins de sa demi-taille + 25 cm de son centre
+				FVector Origin, Extent;
+				Held->GetActorBounds(false, Origin, Extent);
+				const float Distance = FVector::Dist(Character->GetResearcherArms()->GetHandLocation(bRight), Origin);
+				AddInfo(FString::Printf(TEXT("Main %s à %.0f cm du centre de la pièce (demi-taille %.0f cm)"),
+					bRight ? TEXT("droite") : TEXT("gauche"), Distance, Extent.Size()));
+				TestTrue(TEXT("Les mains tiennent la pièce"), Distance < Extent.Size() + 25.f);
+			}
+		}
+		NFSmoke::Capture(TEXT("MainsPiece"));
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Character]() { Character->GetGrabber()->Drop(); return true; }));
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS
+
+

@@ -11,6 +11,7 @@ class UInputAction;
 class UInputMappingContext;
 class UNFGrabberComponent;
 class UNFInteractorComponent;
+class UNFResearcherArmsComponent;
 class USkeletalMeshComponent;
 struct FInputActionValue;
 
@@ -34,6 +35,9 @@ public:
 	USkeletalMeshComponent* GetFirstPersonMesh() const { return FirstPersonMesh; }
 	UNFInteractorComponent* GetInteractor() const { return Interactor; }
 	UNFGrabberComponent* GetGrabber() const { return Grabber; }
+	UNFResearcherArmsComponent* GetResearcherArms() const { return ResearcherArms; }
+
+	virtual void Tick(float DeltaSeconds) override;
 
 protected:
 	virtual void NotifyControllerChanged() override;
@@ -60,6 +64,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Components")
 	TObjectPtr<UNFInteractorComponent> Interactor;
+
+	/** Bras de chercheur visibles à la première personne (mains devant la caméra ou autour de la pièce tenue). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Components")
+	TObjectPtr<UNFResearcherArmsComponent> ResearcherArms;
 
 	/** Prise en main des pièces de la Forge. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Components")
