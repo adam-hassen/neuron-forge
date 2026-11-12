@@ -319,19 +319,27 @@ FString ANFNetworkBuilder::GetHintText() const
 	const ENFTrainingState State = GetTrainingState();
 	if (State == ENFTrainingState::Succeeded)
 	{
-		return TEXT("Bravo ! Le modèle sépare correctement les 4 cas de XOR.");
+		return IsGreenhouse()
+			? TEXT("Bravo ! Le modèle sait reconnaître les plantes qui survivent.\nTestez-le sur le pot de plante près de la porte.")
+			: TEXT("Bravo ! Le modèle sépare correctement les 4 cas de XOR.");
 	}
 	if (State == ENFTrainingState::Training)
 	{
-		return TEXT("Observez la perte diminuer et les poids évoluer...");
+		return IsGreenhouse()
+			? TEXT("Regardez le carnet du labo : la zone verte prend forme...")
+			: TEXT("Observez la perte diminuer et les poids évoluer...");
 	}
 
 	const bool bFailed = (State == ENFTrainingState::Failed);
 	if (HiddenLayers.Num() == 0)
 	{
-		return bFailed
-			? TEXT("Sans couche cachée, le modèle trace une seule droite :\nXOR n'est pas linéairement séparable. Insérez un module de couche dans la Forge.")
-			: TEXT("Assemblez le réseau sur la Forge, puis marchez sur le bouton au sol.");
+		if (!bFailed)
+		{
+			return TEXT("Assemblez le réseau sur la Forge, puis marchez sur le bouton au sol.");
+		}
+		return IsGreenhouse()
+			? TEXT("Sans couche cachée, le modèle ne trace qu'une ligne droite :\nimpossible d'entourer la zone où la plante survit. Insérez un module de couche dans la Forge.")
+			: TEXT("Sans couche cachée, le modèle trace une seule droite :\nXOR n'est pas linéairement séparable. Insérez un module de couche dans la Forge.");
 	}
 
 	const bool bAllLinear = HiddenLayers.ContainsByPredicate(
@@ -339,7 +347,9 @@ FString ANFNetworkBuilder::GetHintText() const
 	if (bAllLinear)
 	{
 		return bFailed
-			? TEXT("Des couches Linear empilées restent linéaires.\nPlantez un cristal ReLU, Tanh ou Sigmoid sur un module.")
+			? (IsGreenhouse()
+				? TEXT("Sans cristal, le module reste « Linear » : toujours une ligne droite.\nPlantez un cristal ReLU, Tanh ou Sigmoid pour courber la frontière.")
+				: TEXT("Des couches Linear empilées restent linéaires.\nPlantez un cristal ReLU, Tanh ou Sigmoid sur un module."))
 			: TEXT("Astuce : sans cristal, un module est Linear et n'ajoute aucune non-linéarité.");
 	}
 
@@ -353,11 +363,18 @@ FString ANFNetworkBuilder::GetHintText() const
 		{
 			return TEXT("Un taux d'apprentissage trop fort rend l'entraînement instable.\nEssayez une valeur plus faible.");
 		}
+		const int32 SmallLimit = IsGreenhouse() ? 3 : 2;
 		const bool bSmallLayer = HiddenLayers.ContainsByPredicate(
-			[](const FNFLayerConfig& Layer) { return Layer.NumNeurons <= 2; });
+			[SmallLimit](const FNFLayerConfig& Layer) { return Layer.NumNeurons <= SmallLimit; });
 		if (bSmallLayer)
 		{
-			return TEXT("Une couche de 1 ou 2 neurones manque de capacité.\nAjoutez des orbes-neurones autour du module.");
+			return IsGreenhouse()
+				? TEXT("Trop peu de neurones pour dessiner la zone de survie.\nPosez au moins 4 orbes-neurones autour du module.")
+				: TEXT("Une couche de 1 ou 2 neurones manque de capacité.\nAjoutez des orbes-neurones autour du module.");
+		}
+		if (IsGreenhouse() && GetLearningRate() >= 0.3f)
+		{
+			return TEXT("Le taux d'apprentissage est trop fort pour 160 expériences :\nle modèle zigzague. Tirez le levier jusqu'à 0,1.");
 		}
 		return TEXT("Presque ! Essayez une autre activation,\nplus de neurones ou un autre taux d'apprentissage.");
 	}
@@ -425,12 +442,32 @@ void ANFNetworkBuilder::ShowPlayerMessage(const FString& Text, const FLinearColo
 	}
 }
 
+void ANFNetworkBuilder::EnsureProblemLoaded()
+{
+	const FString WantedName = IsGreenhouse() ? TEXT("Serre") : TEXT("XOR");
+	if (!Trainer || Trainer->GetDataset().Name == WantedName)
+	{
+		return;
+	}
+	if (IsGreenhouse())
+	{
+		Trainer->SetDataset(FNFDataset::MakeGreenhouse());
+		Trainer->ApplyProfile(FNFGreenhouseProfile());
+	}
+	else
+	{
+		Trainer->SetDataset(FNFDataset::MakeXOR());
+		Trainer->ApplyProfile(FNFTrainingProfile());
+	}
+}
+
 void ANFNetworkBuilder::ApplyConfigToTrainer()
 {
 	if (!Trainer)
 	{
 		return;
 	}
+	EnsureProblemLoaded();
 
 	// La configuration de l'éditeur peut sortir des bornes : on la normalise
 	if (HiddenLayers.Num() > MaxHiddenLayers)
@@ -648,11 +685,16 @@ void ANFNetworkBuilder::UpdateLabels()
 		FString Text;
 		if (c == 0)
 		{
-			Text = FString::Printf(TEXT("Entrée\n%d"), Sizes[0]);
+			const FNFDataset& Data = Trainer->GetDataset();
+			Text = Data.InputNames.Num() == 2
+				? FString::Printf(TEXT("Entrées\n%s · %s"), *Data.InputNames[0], *Data.InputNames[1])
+				: FString::Printf(TEXT("Entrée\n%d"), Sizes[0]);
 		}
 		else if (c == NumColumns - 1)
 		{
-			Text = FString::Printf(TEXT("Sortie\n%s"), *NFActivation::ToString(NetLayers[c - 1].Activation));
+			Text = IsGreenhouse()
+				? FString::Printf(TEXT("Sortie\n%s"), *Trainer->GetDataset().OutputName)
+				: FString::Printf(TEXT("Sortie\n%s"), *NFActivation::ToString(NetLayers[c - 1].Activation));
 		}
 		else
 		{
@@ -667,11 +709,21 @@ void ANFNetworkBuilder::UpdateLabels()
 	if (SampleLabel)
 	{
 		const FNFDataset& Dataset = Trainer->GetDataset();
-		const float* Input = Dataset.GetInput(DisplayedSample);
 		const float Target = Dataset.GetTarget(DisplayedSample)[0];
 		const float Output = NetLayers.Num() > 0 ? NetLayers.Last().A[0] : 0.f;
-		SampleLabel->SetText(FText::FromString(FString::Printf(TEXT("Exemple : %.0f XOR %.0f = %.0f    sortie du réseau : %.2f"),
-			Input[0], Input[1], Target, Output)));
+		if (IsGreenhouse())
+		{
+			const float* Raw = Dataset.GetRawInput(DisplayedSample);
+			SampleLabel->SetText(FText::FromString(FString::Printf(
+				TEXT("Expérience %d : eau %.1f · lumière %.1f → %s     Le modèle dit : %.0f %% de chances de survie"),
+				DisplayedSample + 1, Raw[0], Raw[1], Target >= 0.5f ? TEXT("a survécu") : TEXT("est morte"), Output * 100.f)));
+		}
+		else
+		{
+			const float* Input = Dataset.GetInput(DisplayedSample);
+			SampleLabel->SetText(FText::FromString(FString::Printf(TEXT("Exemple : %.0f XOR %.0f = %.0f    sortie du réseau : %.2f"),
+				Input[0], Input[1], Target, Output)));
+		}
 	}
 }
 

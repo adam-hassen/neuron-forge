@@ -278,6 +278,9 @@ def build_gameplay(blueprints, mats, sounds):
     """Hologramme, Forge, levier, bouton au sol, écran, porte, sortie. Renvoie l'holotable."""
     builder = _spawn(blueprints["NetworkBuilder"].generated_class(), (HOLO_X, 0, 0), FACE_PLAYER, "Hologramme", "Gameplay")
     builder.set_actor_scale3d(_vec(HOLO_SCALE, HOLO_SCALE, HOLO_SCALE))
+    # Le niveau jouable utilise la serre (XOR reste pour les tests)
+    builder.set_editor_property("problem", unreal.NFProblem.GREENHOUSE)
+    builder.set_editor_property("learning_rate_index", 2)
 
     forge = _spawn(unreal.NFForge, (FORGE_X, 0, 0), FACE_PLAYER, "Forge", "Gameplay")
     forge.set_editor_property("builder", builder)
@@ -285,7 +288,7 @@ def build_gameplay(blueprints, mats, sounds):
     forge.set_editor_property("rail_material", mats["TrimSoft"])
     forge.set_editor_property("pylon_material", mats["Pillar"])
     _text("Forge_Titre", (FORGE_X - 10, 0, 340), "LA FORGE", 34, (140, 220, 255), folder="Gameplay")
-    _text("Forge_SousTitre", (FORGE_X - 10, 0, 300), "Insérez les modules de couche dans les fentes", 12, (170, 195, 220), folder="Gameplay")
+    _text("Forge_SousTitre", (FORGE_X - 10, 0, 300), "Construisez le modèle qui prédit si une plante survit", 12, (170, 195, 220), folder="Gameplay")
 
     lever = _spawn(unreal.NFLever, (FORGE_X, 900, 50), FACE_PLAYER, "Levier", "Gameplay")
     lever.set_editor_property("builder", builder)
@@ -304,6 +307,7 @@ def build_gameplay(blueprints, mats, sounds):
     display = _spawn(blueprints["StatusDisplay"].generated_class(), (HOLO_X - 200, -1050, 330), FACE_PLAYER, "EcranEtat", "Gameplay")
     display.set_actor_scale3d(_vec(1.8, 1.8, 1.8))
     display.set_editor_property("builder", builder)
+    display.set_editor_property("mission_title", "MISSION : LA SERRE DU LABO")
 
     door = _spawn(blueprints["LabDoor"].generated_class(), (HALL_MAX_X + WALL / 2, 0, 0), FACE_PLAYER, "PorteLabo", "Gameplay")
     door.set_editor_property("builder", builder)

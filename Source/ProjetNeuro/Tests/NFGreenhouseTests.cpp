@@ -5,6 +5,8 @@
 #include "Misc/AutomationTest.h"
 #include "NeuralNetwork/NFDataset.h"
 #include "NeuralNetwork/NFNeuralNetwork.h"
+#include "Lab/NFLabDoor.h"
+#include "Lab/NFNetworkBuilder.h"
 #include "Tests/NFTestWorld.h"
 #include "Training/NFTrainerComponent.h"
 
@@ -162,4 +164,68 @@ bool FNFGreenhouseCalibrationTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+// ---------------------------------------------------------------------------
+namespace NFGreenhouseTests
+{
+	ANFNetworkBuilder* SpawnGreenhouseBuilder(UWorld* World, const TArray<FNFLayerConfig>& Hidden)
+	{
+		ANFNetworkBuilder* Builder = World->SpawnActorDeferred<ANFNetworkBuilder>(ANFNetworkBuilder::StaticClass(), FTransform::Identity);
+		Builder->Problem = ENFProblem::Greenhouse;
+		Builder->HiddenLayers = Hidden;
+		Builder->LearningRateIndex = 2;	// 0,1
+		Builder->FinishSpawning(FTransform::Identity);
+		Builder->GetTrainer()->EpochsPerSecond = 300.f;	// 5 epochs par frame pour le test
+		return Builder;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFGreenhouseLabTest, "NeuronForge.Greenhouse.LabSuccessOpensDoor", NFTestUtils::Flags)
+
+bool FNFGreenhouseLabTest::RunTest(const FString& Parameters)
+{
+	NFTestUtils::FScopedTestWorld TestWorld(TEXT("NFGreenhouseLabWorld"));
+	ANFNetworkBuilder* Builder = NFGreenhouseTests::SpawnGreenhouseBuilder(TestWorld.World, { { 5, ENFActivation::ReLU } });
+
+	UNFTrainerComponent* Trainer = Builder->GetTrainer();
+	TestEqual(TEXT("Dataset de la serre chargé"), Trainer->GetDataset().Name, FString(TEXT("Serre")));
+	TestEqual(TEXT("Précision cible de la serre"), Trainer->TargetAccuracy, 0.95f);
+	TestEqual(TEXT("Taux de départ 0,1"), Builder->GetLearningRate(), 0.1f);
+
+	const FTransform DoorTransform(FVector(800.f, 0.f, 0.f));
+	ANFLabDoor* Door = TestWorld.World->SpawnActorDeferred<ANFLabDoor>(ANFLabDoor::StaticClass(), DoorTransform);
+	Door->Builder = Builder;
+	Door->FinishSpawning(DoorTransform);
+
+	TestTrue(TEXT("Démarrage de l'entraînement"), Builder->StartTraining());
+	TestWorld.StepUntil([Trainer]() { return !Trainer->IsTraining(); }, 300);
+	TestEqual(TEXT("5 ReLU réussit la serre"), Builder->GetTrainingState(), ENFTrainingState::Succeeded);
+	AddInfo(FString::Printf(TEXT("Serre réussie en %d epochs (%.1f %%), soit %.0f s de jeu"),
+		Trainer->GetProgress().Epoch, Trainer->GetProgress().Accuracy * 100.f, Trainer->GetProgress().Epoch / FNFGreenhouseProfile().EpochsPerSecond));
+	TestTrue(TEXT("Un bon modèle réussit en 10 à 30 secondes de jeu"),
+		Trainer->GetProgress().Epoch / FNFGreenhouseProfile().EpochsPerSecond <= 30.f);
+	TestTrue(TEXT("La porte s'ouvre"), TestWorld.StepUntil([Door]() { return Door->IsOpen(); }, 300));
+
+	// Prédiction ponctuelle (phase de test du pot) : centre de la zone et sécheresse
+	const FNFDataset& Data = Trainer->GetDataset();
+	TestTrue(TEXT("Conditions idéales : survie prédite"), Trainer->Predict(Data.Normalize(5.f), Data.Normalize(5.5f)) > 0.5f);
+	TestTrue(TEXT("Sans eau : mort prédite"), Trainer->Predict(Data.Normalize(0.5f), Data.Normalize(5.5f)) < 0.5f);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FNFGreenhouseLinearTest, "NeuronForge.Greenhouse.LinearModelFails", NFTestUtils::Flags)
+
+bool FNFGreenhouseLinearTest::RunTest(const FString& Parameters)
+{
+	NFTestUtils::FScopedTestWorld TestWorld(TEXT("NFGreenhouseLinearWorld"));
+	ANFNetworkBuilder* Builder = NFGreenhouseTests::SpawnGreenhouseBuilder(TestWorld.World, {});
+
+	TestTrue(TEXT("Démarrage de l'entraînement"), Builder->StartTraining());
+	TestWorld.StepUntil([Builder]() { return !Builder->GetTrainer()->IsTraining(); }, 300);
+	TestEqual(TEXT("Sans couche cachée, la serre échoue"), Builder->GetTrainingState(), ENFTrainingState::Failed);
+	TestTrue(TEXT("Précision plafonnée sous 80 %"), Builder->GetTrainer()->GetProgress().Accuracy < 0.8f);
+	TestTrue(TEXT("Conseil en mots simples : ligne droite"), Builder->GetHintText().Contains(TEXT("ligne droite")));
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS
+

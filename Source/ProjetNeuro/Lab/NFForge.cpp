@@ -157,6 +157,11 @@ void ANFForge::BeginPlay()
 			break;
 		}
 	}
+	if (Builder && Builder->IsGreenhouse())
+	{
+		InputLabel->SetText(LOCTEXT("GreenhouseInput", "ENTRÉES\nEau · Lumière"));
+		OutputLabel->SetText(LOCTEXT("GreenhouseOutput", "SORTIE\nSurvie"));
+	}
 	RefreshAssembly();
 }
 

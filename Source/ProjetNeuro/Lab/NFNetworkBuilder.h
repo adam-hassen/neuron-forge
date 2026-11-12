@@ -127,6 +127,13 @@ public:
 
 	// --- Réglages ---
 
+	/** Problème à résoudre : XOR (tests) ou la serre (niveau jouable). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Network")
+	ENFProblem Problem = ENFProblem::XOR;
+
+	UFUNCTION(BlueprintPure, Category = "Neuron Forge|Network")
+	bool IsGreenhouse() const { return Problem == ENFProblem::Greenhouse; }
+
 	/** Configuration courante des couches cachées (configuration de départ dans l'éditeur). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Neuron Forge|Network")
 	TArray<FNFLayerConfig> HiddenLayers;
@@ -215,6 +222,9 @@ protected:
 
 	/** Envoie la configuration au trainer, reconstruit la visualisation et notifie. */
 	void ApplyConfigToTrainer();
+
+	/** Charge le dataset et les réglages du problème si ce n'est pas déjà fait. */
+	void EnsureProblemLoaded();
 
 	/** Recrée les instances de neurones et de poids pour l'architecture courante. */
 	void RebuildVisualization();

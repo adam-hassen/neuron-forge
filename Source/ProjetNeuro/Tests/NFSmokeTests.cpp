@@ -160,7 +160,7 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 	// Laisse les pièces se poser sur les établis et la caméra se mettre en place
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
 
-	// 1) Assemblage sur la Forge : 1 module, 4 orbes, 1 cristal Tanh
+	// 1) Assemblage sur la Forge : 1 module, 5 orbes, 1 cristal ReLU
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, World, Character, Forge, Builder]()
 	{
 		ANFLayerModule* Module = nullptr;
@@ -180,20 +180,20 @@ bool FNFLabSmokeTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("Le module est tenu"), Character->GetGrabber()->GetHeldPiece() == Module);
 		TestTrue(TEXT("Le module s'insère dans la fente 1"), NFSmoke::CarryAndDrop(Character, Forge->GetBay(0)));
 
-		for (int32 i = 0; i < 4; ++i)
+		for (int32 i = 0; i < 5; ++i)
 		{
 			ANFPiece* Orb = NFSmoke::FindFreePiece(World, ENFPieceType::NeuronOrb);
 			TestTrue(FString::Printf(TEXT("Orbe %d posée autour du module"), i + 1), NFSmoke::GrabAndPlace(Character, Orb, Module->GetOrbSockets()[i]));
 		}
-		ANFPiece* Crystal = NFSmoke::FindFreePiece(World, ENFPieceType::ActivationCrystal, ENFActivation::Tanh);
-		TestTrue(TEXT("Cristal Tanh planté sur le module"), NFSmoke::GrabAndPlace(Character, Crystal, Module->GetCrystalSocket()));
+		ANFPiece* Crystal = NFSmoke::FindFreePiece(World, ENFPieceType::ActivationCrystal, ENFActivation::ReLU);
+		TestTrue(TEXT("Cristal ReLU planté sur le module"), NFSmoke::GrabAndPlace(Character, Crystal, Module->GetCrystalSocket()));
 
 		Forge->RefreshAssembly();
-		TestEqual(TEXT("L'hologramme reflète l'assemblage"), Builder->DescribeNetwork(), FString(TEXT("2 - 4 Tanh - 1 Sigmoid")));
+		TestEqual(TEXT("L'hologramme reflète l'assemblage"), Builder->DescribeNetwork(), FString(TEXT("2 - 5 ReLU - 1 Sigmoid")));
 		return true;
 	}));
 
-	// 2) Levier : un tour complet des crans revient au taux de départ (0,5)
+	// 2) Levier : un tour complet des crans revient au taux de départ (0,1)
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, Character, Lever, Builder]()
 	{
 		NFSmoke::Teleport(Character, Lever->GetActorLocation() + FVector(-190.f, 0.f, 50.f));
